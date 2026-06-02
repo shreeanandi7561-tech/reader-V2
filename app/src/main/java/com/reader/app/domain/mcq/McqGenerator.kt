@@ -141,6 +141,15 @@ object McqGenerator {
         translate. Numbers stay as numbers regardless.
 
         ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST emit math expressions in LaTeX for MathJax.
+        - INLINE math: wrap in single dollar signs `$...$`.
+        - DISPLAY math: wrap in double dollars `$$...$$`.
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
+        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
+
+        ╔════════════════════════════════════════════════════════════╗
         ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
         ╚════════════════════════════════════════════════════════════╝
         The user has explicitly asked for MAXIMUM COVERAGE. There are
@@ -695,6 +704,15 @@ object McqGenerator {
         The user prompt starts with "OUTPUT LANGUAGE: <lang>". Every
         question, option, and originalSnippet you emit MUST be in
         that language and that script.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST emit math expressions in LaTeX for MathJax.
+        - INLINE math: wrap in single dollar signs `$...$`.
+        - DISPLAY math: wrap in double dollars `$$...$$`.
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
+        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT FORMAT — JSON ONLY, NO PROSE, NO MARKDOWN FENCES   ║

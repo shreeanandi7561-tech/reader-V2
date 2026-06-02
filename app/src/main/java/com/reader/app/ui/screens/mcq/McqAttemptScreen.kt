@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.toArgb
+import com.reader.app.ui.components.MathJaxViewer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -159,9 +161,9 @@ private fun ActiveAttempt(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
-            Text(
-                current.question,
-                style = MaterialTheme.typography.bodyLarge,
+            MathJaxViewer(
+                markdown = current.question,
+                textColorHex = String.format("#%06X", (0xFFFFFF and MaterialTheme.colorScheme.onBackground.toArgb()))
             )
             Spacer(Modifier.height(20.dp))
 
@@ -270,11 +272,10 @@ private fun OptionPill(
                 )
             }
             Spacer(Modifier.size(12.dp))
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f),
+            MathJaxViewer(
+                markdown = text,
+                textColorHex = String.format("#%06X", (0xFFFFFF and fg.toArgb())),
+                modifier = Modifier.weight(1f)
             )
         }
     }

@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.toArgb
+import com.reader.app.ui.components.MathJaxViewer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.reader.app.ui.components.ScreenScaffold
@@ -179,7 +181,10 @@ private fun QuestionResultRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(4.dp))
-        Text(question, style = MaterialTheme.typography.bodyLarge)
+        MathJaxViewer(
+            markdown = question,
+            textColorHex = String.format("#%06X", (0xFFFFFF and MaterialTheme.colorScheme.onBackground.toArgb()))
+        )
         Spacer(Modifier.height(10.dp))
 
         options.forEachIndexed { i, label ->
@@ -198,15 +203,15 @@ private fun QuestionResultRow(
                     .background(bg)
                     .padding(10.dp)
             ) {
-                Text(
-                    "${('A' + i)}.  $label" + when {
-                        isCorrect && wasStudentPick -> "   ✓ correct (your pick)"
-                        isCorrect                   -> "   ✓ correct"
-                        wasStudentPick              -> "   ✗ your pick"
-                        else                        -> ""
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = fg,
+                val suffix = when {
+                    isCorrect && wasStudentPick -> "   ✓ correct (your pick)"
+                    isCorrect                   -> "   ✓ correct"
+                    wasStudentPick              -> "   ✗ your pick"
+                    else                        -> ""
+                }
+                MathJaxViewer(
+                    markdown = "${('A' + i)}.  $label$suffix",
+                    textColorHex = String.format("#%06X", (0xFFFFFF and fg.toArgb()))
                 )
             }
             Spacer(Modifier.height(6.dp))

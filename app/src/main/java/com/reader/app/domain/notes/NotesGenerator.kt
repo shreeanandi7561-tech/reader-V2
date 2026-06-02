@@ -147,10 +147,11 @@ window.MathJax = {
         ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
-        - INLINE math: wrap in single dollar signs (or `\(...\)`).
-        - DISPLAY math: wrap in double dollars (or `\[...\]`).
+        - INLINE math: wrap in single dollar signs `$...$`.
+        - DISPLAY math: wrap in double dollars `$$...$$`.
         - Inside `<div class="callout formula">`, put formula in display math.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
+        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  REQUIRED <style> BLOCK — FIXED EYE-COMFORT TEMPLATE       ║
@@ -158,9 +159,10 @@ window.MathJax = {
         You MUST emit this EXACT `<style>` block in `<head>`. Do not change it.
         It provides the bilingual font support and eye-comfort colors requested.
 
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Devanagari:wght@400;700&display=swap');
         @page { size: A4; margin: 1.8cm; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Noto, sans-serif;
+            font-family: 'Noto Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
         }
         h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }
@@ -388,9 +390,10 @@ window.MathJax = {
               <title>$safeTitle</title>
               $MATHJAX_HEAD
               <style>
+                @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Devanagari:wght@400;700&display=swap');
                 @page { size: A4; margin: 1.8cm; }
                 body { 
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Noto, sans-serif;
+                    font-family: 'Noto Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                     font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
                 }
                 h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }
