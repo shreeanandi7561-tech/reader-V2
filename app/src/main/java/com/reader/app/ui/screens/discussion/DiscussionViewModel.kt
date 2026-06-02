@@ -788,51 +788,58 @@ class DiscussionViewModel(
 
         // ---- Step 3: Sample timestamps across all segments ----------------
         //
-        // As per new requirements: We MUST always try to capture exactly 5 frames.
-        // 1. Every selected segment's final moment (endSec) MUST be explicitly captured.
-        // 2. If we have fewer than 5 segments, we backfill the remaining frame quota 
-        //    by sampling intermediate "last moments" (cue boundaries) from the top segments.
-        // 3. The final list is strictly ordered chronologically (ascending).
+        // As per new requirements:
+        // Situation A: If the student asks a question related to the paused timestamp
+        // (i.e. pausedAtSec is within the located segments), we MUST capture exactly
+        // AT the paused timestamp, plus 2 frames before it and 2 frames after it.
+        //
+        // Situation B: If not related to the paused timestamp (or fallback), we capture
+        // the final moment (endSec) of top segments and backfill intermediate "last moments"
+        // to strictly reach 5 frames.
         
-        val sortedSegments = segments.sortedByDescending { seg ->
-            if (pausedAtSec in seg.startSec..seg.endSec) 1 else 0
-        }
-        val topSegments = sortedSegments.take(MAX_TOTAL_FRAMES)
+        val isRelatedToPause = segments.any { pausedAtSec in it.startSec..it.endSec }
 
-        val collectedTimestamps = mutableSetOf<Double>()
-        
-        // Mandatory: add the absolute end of every selected segment.
-        for (seg in topSegments) {
-            collectedTimestamps.add(seg.endSec)
-        }
-
-        // Backfill if we need more to reach 5
-        val remaining = MAX_TOTAL_FRAMES - collectedTimestamps.size
-        if (remaining > 0 && topSegments.isNotEmpty()) {
-            // How many intermediate frames to try to pull from each segment
-            val perSegmentAlloc = (remaining / topSegments.size).coerceAtLeast(1)
+        val timestamps: List<Double> = if (isRelatedToPause) {
+            FrameTimestampSampler.sampleAroundPause(
+                cues = cues,
+                pausedAtSec = pausedAtSec,
+                docTotalSec = cues.lastOrNull()?.endSec ?: 0.0
+            )
+        } else {
+            val sortedSegments = segments.sortedByDescending { seg ->
+                if (pausedAtSec in seg.startSec..seg.endSec) 1 else 0 // Won't happen now, but safe
+            }
+            val topSegments = sortedSegments.take(MAX_TOTAL_FRAMES)
             
+            val collectedTimestamps = mutableSetOf<Double>()
+            
+            // Mandatory: add the absolute end of every selected segment.
             for (seg in topSegments) {
-                if (collectedTimestamps.size >= MAX_TOTAL_FRAMES) break
-                // sample() automatically aligns to cue boundaries (moments of speaking/writing pause)
-                val sampled = FrameTimestampSampler.sample(
-                    cues       = cues,
-                    startSec   = seg.startSec,
-                    endSec     = seg.endSec,
-                    anchorSec  = seg.anchor,
-                    maxFrames  = perSegmentAlloc + 2 // request extra to account for overlaps with endSec
-                )
-                // Reverse iterate to prioritize later, "more complete" boundaries within the segment
-                for (ts in sampled.reversed()) {
+                collectedTimestamps.add(seg.endSec)
+            }
+    
+            // Backfill if we need more to reach 5
+            val remaining = MAX_TOTAL_FRAMES - collectedTimestamps.size
+            if (remaining > 0 && topSegments.isNotEmpty()) {
+                val perSegmentAlloc = (remaining / topSegments.size).coerceAtLeast(1)
+                for (seg in topSegments) {
                     if (collectedTimestamps.size >= MAX_TOTAL_FRAMES) break
-                    collectedTimestamps.add(ts)
+                    val sampled = FrameTimestampSampler.sample(
+                        cues       = cues,
+                        startSec   = seg.startSec,
+                        endSec     = seg.endSec,
+                        anchorSec  = seg.anchor,
+                        maxFrames  = perSegmentAlloc + 2
+                    )
+                    for (ts in sampled.reversed()) {
+                        if (collectedTimestamps.size >= MAX_TOTAL_FRAMES) break
+                        collectedTimestamps.add(ts)
+                    }
                 }
             }
+    
+            collectedTimestamps.toList().sorted()
         }
-
-        val timestamps: List<Double> = collectedTimestamps
-            .toList()
-            .sorted()
 
         if (timestamps.isEmpty()) return null
 
