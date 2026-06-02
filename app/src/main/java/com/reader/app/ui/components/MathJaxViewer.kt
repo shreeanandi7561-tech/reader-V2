@@ -94,28 +94,28 @@ fun MathJaxViewer(
 
                                 // 1. Double dollar display math: $$...$$
                                 processedMd = processedMd.replace(/\$\$([\s\S]*?)\$\$/g, function(match) {
-                                    const placeholder = '___MATH_DP_' + (placeholderCounter++) + '___';
+                                    const placeholder = 'MATHPLACEHOLDERDP' + (placeholderCounter++);
                                     mathBlocks.push({ placeholder: placeholder, content: match });
                                     return placeholder;
                                 });
 
                                 // 2. Single dollar inline math: $...$
                                 processedMd = processedMd.replace(/\$([^\$\n]+?)\$/g, function(match) {
-                                    const placeholder = '___MATH_IP_' + (placeholderCounter++) + '___';
+                                    const placeholder = 'MATHPLACEHOLDERIP' + (placeholderCounter++);
                                     mathBlocks.push({ placeholder: placeholder, content: match });
                                     return placeholder;
                                 });
 
-                                // 3. LaTeX display math: \[...\]
-                                processedMd = processedMd.replace(/\\\[([\s\S]*?)\\\]/g, function(match) {
-                                    const placeholder = '___MATH_LDP_' + (placeholderCounter++) + '___';
+                                // 3. LaTeX display math: \[...\] or \\[...\\]
+                                processedMd = processedMd.replace(/\\\\?\[([\s\S]*?)\\\\?\]/g, function(match) {
+                                    const placeholder = 'MATHPLACEHOLDERLDP' + (placeholderCounter++);
                                     mathBlocks.push({ placeholder: placeholder, content: match });
                                     return placeholder;
                                 });
 
-                                // 4. LaTeX inline math: \(...\)
-                                processedMd = processedMd.replace(/\\\(([\s\S]*?)\\\)/g, function(match) {
-                                    const placeholder = '___MATH_LIP_' + (placeholderCounter++) + '___';
+                                // 4. LaTeX inline math: \(...\) or \\(\\...)
+                                processedMd = processedMd.replace(/\\\\?\(([\s\S]*?)\\\\?\)/g, function(match) {
+                                    const placeholder = 'MATHPLACEHOLDERLIP' + (placeholderCounter++);
                                     mathBlocks.push({ placeholder: placeholder, content: match });
                                     return placeholder;
                                 });

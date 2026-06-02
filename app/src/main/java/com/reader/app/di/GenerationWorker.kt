@@ -119,10 +119,12 @@ class GenerationWorker(
         }.getOrNull().orEmpty()
         val previousTexts = previousQuestions.map { it.question }
 
-        // Detect whether the transcript is Math (first situation). Math subjects get Mode A if markers exist.
-        // Other subjects (second situation) always use conceptual Mode B to keep focus on pure educational theory.
-        val isMath = McqGenerator.isMathSubject(documentTitle, transcript)
-        val detection = if (isMath) VideoQuestionDetector.detect(transcript) else VideoQuestionDetector.Result.NoQuestions
+        // Detect whether the transcript has explicitly-numbered
+        // questions ("Q.1", "pehla sawaal", "प्रश्न 2", etc.).
+        // If yes → Mode A (extract ONLY those questions as MCQs).
+        // If no  → Mode B (topic-based: top 10 important MCQs from
+        //          full document, excluding previously-generated ones).
+        val detection = VideoQuestionDetector.detect(transcript)
         val questionSegments: List<VideoQuestionDetector.QuestionSegment> = when (detection) {
             is VideoQuestionDetector.Result.HasQuestions -> detection.segments
             VideoQuestionDetector.Result.NoQuestions     -> emptyList()
