@@ -67,7 +67,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * 2-segment retrieval produces 3 each, and a 1-segment fallback
  * gets all 6.
  */
-private const val MAX_TOTAL_FRAMES: Int = 6
+private const val MAX_TOTAL_FRAMES: Int = 5
 
 /**
  * Minimum distance (seconds) the pause moment must sit from either
@@ -797,7 +797,8 @@ class DiscussionViewModel(
         // the final moment (endSec) of top segments and backfill intermediate "last moments"
         // to strictly reach 5 frames.
         
-        val isRelatedToPause = segments.any { pausedAtSec in it.startSec..it.endSec }
+        // "Aaspaas" - consider it related if the paused moment is within or very close (5s) to the segment.
+        val isRelatedToPause = segments.any { pausedAtSec in (it.startSec - 5.0)..(it.endSec + 5.0) }
 
         val timestamps: List<Double> = if (isRelatedToPause) {
             FrameTimestampSampler.sampleAroundPause(

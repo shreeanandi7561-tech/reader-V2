@@ -96,6 +96,7 @@ class BargeInListener(
         val bufSize = minBuf.coerceAtLeast(frameSize * 4)
 
         val rec = try {
+            @SuppressLint("MissingPermission")
             AudioRecord(
                 MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 sampleRate,

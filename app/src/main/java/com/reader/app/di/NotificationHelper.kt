@@ -1,5 +1,6 @@
 package com.reader.app.di
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -142,8 +143,13 @@ object NotificationHelper {
             .build()
 
         if (canPost(application)) {
-            NotificationManagerCompat.from(application)
-                .notify(notificationId(type, documentId), notif)
+            try {
+                @SuppressLint("MissingPermission")
+                NotificationManagerCompat.from(application)
+                    .notify(notificationId(type, documentId), notif)
+            } catch (e: SecurityException) {
+                // Silently ignore if permission was somehow revoked despite check
+            }
         }
     }
 
