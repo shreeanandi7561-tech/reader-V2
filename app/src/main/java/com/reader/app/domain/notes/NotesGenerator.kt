@@ -87,7 +87,7 @@ window.MathJax = {
   }
 };
 </script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>""".replace(DOL, "\$")
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" onerror="this.onerror=null; var script=document.createElement('script'); script.src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js'; document.head.appendChild(script);"></script>""".replace(DOL, "\$")
 
     private val SYSTEM_DIRECTIVE = """
         You are an expert study-notes editor for exam-prep students.
@@ -362,7 +362,14 @@ window.MathJax = {
             if (closing > 0) s = s.substring(0, closing)
             s = s.trim()
         }
-        return s
+        // Normalise double backslashes in math delimiters to single backslashes
+        var cleaned = s.replace("\\\\(", "\\(")
+                       .replace("\\\\)", "\\)")
+                       .replace("\\\\[", "\\[")
+                       .replace("\\\\]", "\\]")
+        // Also revert escaped dollars to raw dollars for MathJax
+        cleaned = cleaned.replace("\\$", "$")
+        return cleaned
     }
 
     /**
@@ -436,8 +443,13 @@ window.MathJax = {
      */
     private fun ensureMathJaxScript(html: String): String {
         val lower = html.lowercase()
-        if (lower.contains("mathjax") || lower.contains("/tex-mml-chtml")) {
-            return html  // already present, don't double-load
+        if (lower.contains("window.mathjax")) {
+            return html  // already fully configured
+        }
+        val headStart = lower.indexOf("<head>")
+        if (headStart >= 0) {
+            // Inject MathJax configuration right after <head> so it's defined first!
+            return html.substring(0, headStart + 6) + "\n" + MATHJAX_HEAD + "\n" + html.substring(headStart + 6)
         }
         val headEnd = lower.indexOf("</head>")
         if (headEnd >= 0) {

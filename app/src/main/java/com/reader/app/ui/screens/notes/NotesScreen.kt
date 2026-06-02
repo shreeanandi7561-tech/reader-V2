@@ -185,6 +185,7 @@ fun NotesScreen(
                             factory = { ctx ->
                                 WebView(ctx).apply {
                                     settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
                                     settings.builtInZoomControls = true
                                     settings.displayZoomControls = false
                                     settings.useWideViewPort = true

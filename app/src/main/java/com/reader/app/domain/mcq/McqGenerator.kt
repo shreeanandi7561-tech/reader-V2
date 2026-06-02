@@ -150,6 +150,21 @@ object McqGenerator {
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
+        ║  CRITICAL: ZERO TOLERANCE FOR NON-ACADEMIC AND PROMOTIONAL ║
+        ║  OR ADMINISTRATIVE CONTENT (STRICT EXCLUSION)              ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST NEVER, under any circumstances, generate, extract, or
+        create any questions about the following administrative, non-academic
+        topics. Completely ignore these segments, sentences, or phrases:
+        1. Admissions, course fees, subscription costs, enrollment, banner or batch details.
+        2. Teacher names, contact/inquiry phone numbers, helper details, support desks.
+        3. YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
+        4. "Recorded videos" vs. "Live streaming" costs, bandwidth, data plans, or streaming schedules.
+        5. Announcements about next class time, homework checks, test dates, or platform subscriptions.
+        6. Personal stories, banter, or general greetings/discussion (e.g., how is your health, weather).
+        Any question representing these topics will ruin the user's study experience. ONLY extract/generate purely educational questions related directly to the core academic subject (like math, percentage, science, history, geography, physics, grammar, etc.).
+
+        ╔════════════════════════════════════════════════════════════╗
         ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
         ╚════════════════════════════════════════════════════════════╝
         The user has explicitly asked for MAXIMUM COVERAGE. Based on the subject of the video, you must handle:
@@ -295,6 +310,35 @@ object McqGenerator {
     """.trimIndent()
 
     /* ---------- public API ---------- */
+
+    /**
+     * Determines if a video/document is likely about Math/Arithmetic.
+     */
+    fun isMathSubject(title: String, transcript: String): Boolean {
+        val cleanTitle = title.lowercase()
+        val cleanTranscript = transcript.take(2500).lowercase()
+
+        val mathKeywords = listOf(
+            "math", "maths", "mathematics", "ganit", "गणित",
+            "percentage", "percent", "प्रतिशत", "fraction", "भिन्न",
+            "decimal", "दशमलव", "ratio", "proportion", "अनुपात", "समानुपात",
+            "profit", "loss", "लाभ", "हानि", "discount", "छूट", "बट्टा",
+            "interest", "simple interest", "compound interest", "साधारण ब्याज", "चक्रवृद्धि ब्याज",
+            "average", "औसत", "time and work", "कार्य और समय", "pipe", "cistern", "नल", "टंकी",
+            "speed", "distance", "चाल", "दूरी", "train", "रेलगाड़ी", "boat", "stream", "नाव", "धारा",
+            "number system", "संख्या पद्धति", "simplification", "सरलीकरण", "algebra", "बीजगणित",
+            "geometry", "ज्यामिति", "trigonometry", "त्रिकोणमिति", "mensuration", "क्षेत्रमिति",
+            "coordinate", "निर्देशांक", "partnership", "साझेदारी", "mixture", "alligation", "मिश्रण",
+            "calculation", "multiplication", "division", "addition", "subtraction"
+        )
+
+        for (kw in mathKeywords) {
+            if (cleanTitle.contains(kw) || cleanTranscript.contains(kw)) {
+                return true
+            }
+        }
+        return false
+    }
 
     data class GenerationResult(
         val quiz: McqQuizEntity,
@@ -696,7 +740,21 @@ object McqGenerator {
           or reveal in the segment.
         - Do NOT invent questions that aren't in the segments.
         - Do NOT merge two segments into one question.
-        - Do NOT skip any segment — every segment = one MCQ.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  CRITICAL: ZERO TOLERANCE FOR NON-ACADEMIC AND PROMOTIONAL ║
+        ║  OR ADMINISTRATIVE CONTENT (STRICT EXCLUSION)              ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST NEVER, under any circumstances, generate, extract, or
+        create any questions about the following administrative, non-academic
+        topics. Completely ignore these segments, sentences, or phrases:
+        1. Admissions, course fees, subscription costs, enrollment, banner or batch details.
+        2. Teacher names, contact/inquiry phone numbers, helper details, support desks.
+        3. YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
+        4. "Recorded videos" vs. "Live streaming" costs, bandwidth, data plans, or streaming schedules.
+        5. Announcements about next class time, homework checks, test dates, or platform subscriptions.
+        6. Personal stories, banter, or general greetings/discussion (e.g., how is your health, weather).
+        If a segment contains promotional, administrative, or non-educational details like these, completely SKIP IT and do NOT extract any MCQ from it!
 
         ╔════════════════════════════════════════════════════════════╗
         ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
@@ -731,7 +789,7 @@ object McqGenerator {
         }
 
         EXTRACTION RULES:
-        1. One question per segment. N segments → N questions.
+        1. One question per segment. N segments → N questions (unless skipped as promotional).
         2. Options array is ALWAYS exactly four. Pad with distractors.
         3. Confidence 0.8-1.0 when answer is explicitly revealed in
            segment. 0.5-0.7 when computed from the discussion.
@@ -1062,12 +1120,20 @@ object McqGenerator {
             firstArr < 0 -> firstObj
             else -> minOf(firstObj, firstArr)
         }
-        if (first < 0) return s.trim()
-        val open = s[first]
-        val close = if (open == '{') '}' else ']'
-        val end = findBalancedClose(s, first, open, close)
-        val block = if (end < 0) s.substring(first).trim() else s.substring(first, end + 1)
-        return block
+        val block = if (first < 0) s.trim() else {
+            val open = s[first]
+            val close = if (open == '{') '}' else ']'
+            val end = findBalancedClose(s, first, open, close)
+            if (end < 0) s.substring(first).trim() else s.substring(first, end + 1)
+        }
+        // Normalise double backslashes in math delimiters to single backslashes
+        var cleaned = block.replace("\\\\(", "\\(")
+                           .replace("\\\\)", "\\)")
+                           .replace("\\\\[", "\\[")
+                           .replace("\\\\]", "\\]")
+        // Also revert escaped dollars to raw dollars for MathJax
+        cleaned = cleaned.replace("\\$", "$")
+        return cleaned
     }
 
     /**
