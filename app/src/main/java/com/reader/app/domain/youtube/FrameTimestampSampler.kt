@@ -185,51 +185,30 @@ object FrameTimestampSampler {
         )
 
         // Step 5: combine, clamp, dedupe, sort.
-        val candidates = mutableListOf<Double>()
-        candidates.add(pause) // Put anchor first so it's always preserved
-        candidates.addAll(twoBefore)
-        candidates.addAll(twoAfter)
-
-        // Deduplicate using a minimum gap (2.0s) so we don't capture the same frame/scene twice
-        val minGap = 2.0
-        val out = ArrayList<Double>()
-        for (ts in candidates.map { it.coerceIn(0.0, upperBound) }) {
-            if (out.none { kotlin.math.abs(it - ts) < minGap }) {
-                out.add(ts)
-            }
-        }
+        var out = ArrayList<Double>(5)
+        out += twoBefore
+        out += pause
+        out += twoAfter
+        out = out.map { it.coerceIn(0.0, upperBound) }.distinct().toMutableList() as ArrayList<Double>
 
         // Step 6: Guarantee EXACTLY 5 frames. The user's prompt strongly expects
         // exactly 5 images to be sent (2 before, 1 at, 2 after equivalent) and 
         // will break if deduplication reduces this count.
         var offsetMultiplier = 1.0
         while (out.size < 5) {
-            val candidatePos = (pause + (offsetMultiplier * 3.0)).coerceIn(0.0, upperBound)
-            if (out.none { kotlin.math.abs(it - candidatePos) < minGap }) {
-                out.add(candidatePos)
+            val candidate = (pause + (offsetMultiplier * 2.5)).coerceIn(0.0, upperBound)
+            if (!out.contains(candidate)) {
+                out.add(candidate)
+            } else {
+                val candidateNeg = (pause - (offsetMultiplier * 2.5)).coerceIn(0.0, upperBound)
+                if (!out.contains(candidateNeg)) {
+                    out.add(candidateNeg)
+                }
             }
-            if (out.size >= 5) break
-
-            val candidateNeg = (pause - (offsetMultiplier * 3.0)).coerceIn(0.0, upperBound)
-            if (out.none { kotlin.math.abs(it - candidateNeg) < minGap }) {
-                out.add(candidateNeg)
-            }
-            
             offsetMultiplier += 1.0
             
             // Safety break just in case bounds make it impossible
-            if (offsetMultiplier > 50.0) {
-                var fallbackOffset = 0.5
-                while (out.size < 5 && fallbackOffset < 10.0) {
-                    val cExtPos = (pause + fallbackOffset).coerceIn(0.0, upperBound)
-                    if (!out.contains(cExtPos)) out.add(cExtPos)
-                    if (out.size >= 5) break
-                    val cExtNeg = (pause - fallbackOffset).coerceIn(0.0, upperBound)
-                    if (!out.contains(cExtNeg)) out.add(cExtNeg)
-                    fallbackOffset += 0.5
-                }
-                break
-            }
+            if (offsetMultiplier > 50.0) break
         }
 
         return out.sorted().take(5) // Ensure strictly 5

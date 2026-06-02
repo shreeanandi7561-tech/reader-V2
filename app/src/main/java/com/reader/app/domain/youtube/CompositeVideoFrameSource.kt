@@ -117,6 +117,7 @@ class CompositeVideoFrameSource(
         // the AI sees frames chronologically (matches what the prompt
         // builder expects).
         val out = ArrayList<ImageData>(timestamps.size)
+
         for (t in timestamps) {
             val p = byTs[t]
             val isBlank = p != null && isLikelyBlank(p)
