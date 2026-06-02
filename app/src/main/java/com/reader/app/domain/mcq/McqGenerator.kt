@@ -148,6 +148,7 @@ object McqGenerator {
         - DISPLAY math: wrap in double dollars `$$...$$`.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
         - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the single-dollar and double-dollar math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
@@ -168,12 +169,11 @@ object McqGenerator {
         SITUATION 2: THE VIDEO IS PURE THEORY (NO EXPLICIT QUESTIONS)
         - If the video is purely theoretical teaching/concepts and does NOT
           discuss any specific practice questions or MCQs:
-          YOU MUST GENERATE THE TOP 10-20 MOST IMPORTANT MCQs based on the
-          concepts taught in the video.
+          YOU MUST GENERATE THE TOP 10-20 MOST IMPORTANT ACADEMIC/SUBJECT-MATTER MCQs based strictly on the educational concepts taught in the video.
+        - STRICTLY IGNORE all promotional talk, course fees, inquiry numbers, teacher introductions, Telegram channel links, or personal stories. DO NOT generate ANY questions about these!
+        - Identify the core subject/chapter of the video and generate questions ONLY about that core subject/chapter based ON THE FACTS PRESENTED IN THIS VIDEO.
+        - Do NOT include external information not taught in the video.
         - Do NOT return an empty list.
-        - Identify the most important facts, concepts, or difficulty-level
-          appropriate questions that test the student's understanding of this
-          chapter/topic.
         - Generate the question, the correct answer, and 3 plausible distractors.
         - Mark `source = "ai_filled"` for all of them.
 
@@ -713,6 +713,7 @@ object McqGenerator {
         - DISPLAY math: wrap in double dollars `$$...$$`.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
         - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the single-dollar and double-dollar math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT FORMAT — JSON ONLY, NO PROSE, NO MARKDOWN FENCES   ║
@@ -1066,7 +1067,8 @@ object McqGenerator {
         val open = s[first]
         val close = if (open == '{') '}' else ']'
         val end = findBalancedClose(s, first, open, close)
-        return if (end < 0) s.substring(first).trim() else s.substring(first, end + 1)
+        val block = if (end < 0) s.substring(first).trim() else s.substring(first, end + 1)
+        return block.replace("\\$", "$")
     }
 
     /**
