@@ -144,29 +144,29 @@ object McqGenerator {
         ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
-        - INLINE math: wrap in single dollar signs `$...$`.
-        - DISPLAY math: wrap in double dollars `$$...$$`.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
-        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
-        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the single-dollar and double-dollar math blocks. Only place numbers, variables, and math operators inside the math blocks.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
         ╚════════════════════════════════════════════════════════════╝
-        The user has explicitly asked for MAXIMUM COVERAGE. There are
-        two situations you must handle:
+        The user has explicitly asked for MAXIMUM COVERAGE. Based on the subject of the video, you must handle:
 
-        SITUATION 1: THE VIDEO CONTAINS MCQs OR WORKED EXAMPLES
-        - If the teacher reads or discusses questions, YOU MUST EXTRACT THEM.
-        - Order doesn't matter. Include everything that is a question.
+        SITUATION 1: MATH / PROBLEM-SOLVING SUBJECTS (Contains MCQs/Examples)
+        - ALWAYS apply this logic for Math subjects.
+        - If the teacher reads or discusses questions ("chaliye prashn Ek solve karte Hain", "pahla prashn"), YOU MUST EXTRACT THEM. EXACT MATCH.
+        - Order or serial number doesn't matter, just extract the exact questions.
         - If the transcript shows the question + the correct answer
-          but NO options, EXTRACT it and GENERATE 4 options yourself
+          but NO options, EXTRACT it and GENERATE 4 options yourself using AI 
           (`source = "ai_filled"`).
         - If only 1, 2, or 3 options are stated, FILL the rest.
         - Worked examples ("agar speed 60 km/h hai... distance kya hoga?")
           are QUESTIONS. Extract them, compute the answer, generate options.
 
-        SITUATION 2: THE VIDEO IS PURE THEORY (NO EXPLICIT QUESTIONS)
+        SITUATION 2: NON-MATH / PURE THEORY SUBJECTS (No explicit questions)
+        - ALWAYS apply this logic for subjects other than Math (e.g. Science, History, GK, Theory).
         - If the video is purely theoretical teaching/concepts and does NOT
           discuss any specific practice questions or MCQs:
           YOU MUST GENERATE THE TOP 10-20 MOST IMPORTANT ACADEMIC/SUBJECT-MATTER MCQs based strictly on the educational concepts taught in the video.
@@ -709,11 +709,10 @@ object McqGenerator {
         ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
-        - INLINE math: wrap in single dollar signs `$...$`.
-        - DISPLAY math: wrap in double dollars `$$...$$`.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
-        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
-        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the single-dollar and double-dollar math blocks. Only place numbers, variables, and math operators inside the math blocks.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT FORMAT — JSON ONLY, NO PROSE, NO MARKDOWN FENCES   ║
@@ -1068,7 +1067,7 @@ object McqGenerator {
         val close = if (open == '{') '}' else ']'
         val end = findBalancedClose(s, first, open, close)
         val block = if (end < 0) s.substring(first).trim() else s.substring(first, end + 1)
-        return block.replace("\\$", "$")
+        return block
     }
 
     /**

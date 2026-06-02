@@ -147,12 +147,11 @@ window.MathJax = {
         ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
-        - INLINE math: wrap in single dollar signs `$...$`.
-        - DISPLAY math: wrap in double dollars `$$...$$`.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
         - Inside `<div class="callout formula">`, put formula in display math.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
-        - CRITICAL: NEVER escape dollar signs in math mode. Do NOT write `\$`.
-        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the single-dollar and double-dollar math blocks. Only place numbers, variables, and math operators inside the math blocks.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  REQUIRED <style> BLOCK — FIXED EYE-COMFORT TEMPLATE       ║
@@ -363,7 +362,7 @@ window.MathJax = {
             if (closing > 0) s = s.substring(0, closing)
             s = s.trim()
         }
-        return s.replace("\\$", "$")
+        return s
     }
 
     /**
