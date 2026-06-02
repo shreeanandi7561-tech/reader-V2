@@ -35,7 +35,7 @@ object ServiceLocator {
         synchronized(this) {
             if (initialized) return
             val db = ReaderDatabase.get(context)
-            configRepository            = ConfigRepository(db.apiConfigDao())
+            configRepository            = ConfigRepository(context, db.apiConfigDao())
             documentRepository          = DocumentRepository(db.documentDao(), db.documentChunkDao(), db.transcriptCueDao())
             llmRepository               = LlmRepository()
             speakerEnrollmentRepository = SpeakerEnrollmentRepository(db.speakerEnrollmentDao())

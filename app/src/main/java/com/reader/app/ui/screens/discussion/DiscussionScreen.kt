@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.reader.app.domain.text.RichTextRenderer
 import com.reader.app.ui.components.JumpToSpokenPill
 import com.reader.app.ui.components.SpokenAutoScrollState
@@ -254,15 +256,67 @@ fun DiscussionScreen(
     // raha hai" pill (rendered below) lets them re-engage with one tap.
     //
     // Word-level smooth follow is also active via [SpokenWordTracker]
-    // wired into each chat row's body — once the speaking row is on
-    // screen, the viewport drifts gently to keep the highlighted word
-    // inside a comfortable vertical band as TTS progresses through it.
+    // wired into each chat row's body
     val autoScroll = rememberSpokenAutoScroll(
         nowSpeakingIndex = state.nowSpeakingIndex,
         nowSpokenRange   = state.nowSpokenRange,
         fallbackIndex    = (state.messages.size - 1).coerceAtLeast(0),
         enabled          = state.messages.isNotEmpty()
     )
+
+    var inspectingFrame by remember { mutableStateOf<com.reader.app.domain.model.ImageData?>(null) }
+    var fetchingFrameFor by remember { mutableStateOf<Double?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    if (inspectingFrame != null || fetchingFrameFor != null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { 
+            inspectingFrame = null
+            fetchingFrameFor = null
+        }) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                Column {
+                    if (fetchingFrameFor != null) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(16f/9f), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                        }
+                    } else {
+                        val bmp = remember(inspectingFrame) {
+                            try {
+                                val base64 = inspectingFrame!!.base64
+                                val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+                                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (bmp != null) {
+                            androidx.compose.foundation.Image(
+                                bitmap = bmp,
+                                contentDescription = "Extracted Video Frame",
+                                modifier = Modifier.fillMaxWidth().aspectRatio(16f/9f)
+                            )
+                        } else {
+                            Box(Modifier.fillMaxWidth().aspectRatio(16f/9f), contentAlignment = Alignment.Center) {
+                                Text("Failed to extract frame")
+                            }
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+                        androidx.compose.material3.TextButton(onClick = { 
+                            inspectingFrame = null
+                            fetchingFrameFor = null
+                        }) {
+                            Text("Close")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
 
@@ -285,7 +339,18 @@ fun DiscussionScreen(
                 videoContent     = videoContent,
                 videoId          = videoId,
                 pauseVideoIfNeeded = ::pauseVideoIfNeeded,
-                onSeekTo         = { videoHandle.seekTo(it) },
+                onSeekTo         = { ts -> 
+                    // Seek video for continuity
+                    if (videoHandle.playerView != null) videoHandle.seekTo(ts)
+                    
+                    // Show exact image frame popup as requested by user
+                    scope.launch {
+                        fetchingFrameFor = ts
+                        val frame = vm.captureSingleFrame(ts)
+                        inspectingFrame = frame
+                        fetchingFrameFor = null
+                    }
+                },
                 autoScroll       = autoScroll,
                 hasMic           = hasMic,
                 onBack           = onBack,

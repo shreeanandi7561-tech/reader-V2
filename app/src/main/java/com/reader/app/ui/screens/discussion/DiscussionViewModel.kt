@@ -26,6 +26,7 @@ import com.reader.app.domain.youtube.StoryboardSpec
 import com.reader.app.domain.youtube.TranscriptCue
 import com.reader.app.domain.youtube.VideoFrameSource
 import kotlinx.coroutines.CancellationException
+import com.reader.app.domain.model.ImageData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -1187,6 +1188,15 @@ class DiscussionViewModel(
             }
             s.copy(messages = msgs)
         }
+    }
+
+    /**
+     * Grabs a single frame screenshot to display in a popup dialog.
+     */
+    suspend fun captureSingleFrame(timestampSec: Double): ImageData? {
+        val src = videoFrameSource
+        val frames = src.captureFrames(listOf(timestampSec))
+        return frames.firstOrNull()
     }
 
     override fun onCleared() {
