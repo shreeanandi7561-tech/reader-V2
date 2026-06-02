@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -269,7 +270,12 @@ fun DiscussionScreen(
         // chat + composer hidden behind. Movable content is moved
         // here, preserving its state.
         if (isFullscreen && videoContent != null) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .safeDrawingPadding()
+            ) {
                 videoContent(Modifier.fillMaxSize(), true)
             }
         } else {

@@ -70,6 +70,9 @@ class VideoPlaybackHandle internal constructor() {
     var playbackRate: PlayerConstants.PlaybackRate by mutableStateOf(PlayerConstants.PlaybackRate.RATE_1)
         internal set
 
+    /** Preferred video quality string. Managed by quality popup. */
+    var preferredQuality: String by mutableStateOf("Auto")
+
     /**
      * Latest error reported by the IFrame player, or `null` when the
      * player is healthy. Cleared on every successful `onReady`.

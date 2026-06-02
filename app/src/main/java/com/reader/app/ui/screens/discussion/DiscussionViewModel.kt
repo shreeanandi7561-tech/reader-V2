@@ -830,15 +830,9 @@ class DiscussionViewModel(
             collectedTimestamps.toList().sorted()
         }
 
-        // Deduplicate timestamps to prevent visually similar screenshots (at least 2.0s apart).
-        // Prioritize timestamps closest to the paused moment.
-        val distinctTimestamps = mutableListOf<Double>()
-        for (ts in timestamps.sortedBy { kotlin.math.abs(it - pausedAtSec) }) {
-            if (distinctTimestamps.none { kotlin.math.abs(it - ts) < 2.0 }) {
-                distinctTimestamps.add(ts)
-            }
-        }
-        val finalTimestamps = distinctTimestamps.sorted()
+        // No deduplication — the student strictly requested exactly 5 frames (e.g. 2 before, 
+        // 1 at pause, 2 after) and deduplication might drop some frames resulting in only 3 or 4.
+        val finalTimestamps = timestamps.sorted()
 
         if (finalTimestamps.isEmpty()) return null
 

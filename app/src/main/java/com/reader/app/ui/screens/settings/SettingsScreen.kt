@@ -74,6 +74,7 @@ fun SettingsScreen(
                 ModeBlock(
                     heading  = "MODE 1 · READING",
                     form     = state.reading,
+                    original = state.readingOriginal,
                     onChange = { f -> vm.update(AppMode.Reading) { f } },
                     onSave   = { vm.save(AppMode.Reading) }
                 )
@@ -85,6 +86,7 @@ fun SettingsScreen(
                 ModeBlock(
                     heading  = "MODE 2 · DISCUSSION",
                     form     = state.discussion,
+                    original = state.discussionOriginal,
                     onChange = { f -> vm.update(AppMode.Discussion) { f } },
                     onSave   = { vm.save(AppMode.Discussion) }
                 )
@@ -96,6 +98,7 @@ fun SettingsScreen(
                 ModeBlock(
                     heading  = "MODE 3 · GENERATE",
                     form     = state.generate,
+                    original = state.generateOriginal,
                     onChange = { f -> vm.update(AppMode.Generate) { f } },
                     onSave   = { vm.save(AppMode.Generate) }
                 )
@@ -148,6 +151,7 @@ fun SettingsScreen(
 private fun ModeBlock(
     heading: String,
     form: SettingsViewModel.ModeForm,
+    original: SettingsViewModel.ModeForm,
     onChange: (SettingsViewModel.ModeForm) -> Unit,
     onSave: () -> Unit
 ) {
@@ -182,8 +186,12 @@ private fun ModeBlock(
     Spacer(Modifier.height(16.dp))
 
     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-        Button(onClick = onSave, enabled = form.toConfig().isComplete()) {
-            Text("Save")
+        val hasChanges = form != original
+        Button(
+            onClick = onSave, 
+            enabled = form.toConfig().isComplete() && hasChanges
+        ) {
+            Text(if (hasChanges) "Save" else "Saved")
         }
     }
 }

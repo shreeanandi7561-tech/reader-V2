@@ -38,8 +38,11 @@ class SettingsViewModel(
 
     data class UiState(
         val reading: ModeForm = ModeForm(AppMode.Reading),
+        val readingOriginal: ModeForm = ModeForm(AppMode.Reading),
         val discussion: ModeForm = ModeForm(AppMode.Discussion),
+        val discussionOriginal: ModeForm = ModeForm(AppMode.Discussion),
         val generate: ModeForm = ModeForm(AppMode.Generate),
+        val generateOriginal: ModeForm = ModeForm(AppMode.Generate),
         val enrollmentUpdatedAt: Long? = null,
         val savedMessage: String? = null
     )
@@ -50,13 +53,16 @@ class SettingsViewModel(
     init {
         viewModelScope.launch {
             configRepo.get(AppMode.Reading)?.let { c ->
-                _state.update { it.copy(reading = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)) }
+                val f = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)
+                _state.update { it.copy(reading = f, readingOriginal = f) }
             }
             configRepo.get(AppMode.Discussion)?.let { c ->
-                _state.update { it.copy(discussion = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)) }
+                val f = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)
+                _state.update { it.copy(discussion = f, discussionOriginal = f) }
             }
             configRepo.get(AppMode.Generate)?.let { c ->
-                _state.update { it.copy(generate = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)) }
+                val f = ModeForm(c.mode, c.provider, c.apiKey, c.modelName)
+                _state.update { it.copy(generate = f, generateOriginal = f) }
             }
             enrollmentRepo.get()?.let { e ->
                 _state.update { it.copy(enrollmentUpdatedAt = e.updatedAt) }
@@ -82,7 +88,13 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             configRepo.save(form.toConfig())
-            _state.update { it.copy(savedMessage = "${mode.name} saved") }
+            _state.update { s ->
+                when (mode) {
+                    AppMode.Reading -> s.copy(readingOriginal = form, savedMessage = "${mode.name} saved")
+                    AppMode.Discussion -> s.copy(discussionOriginal = form, savedMessage = "${mode.name} saved")
+                    AppMode.Generate -> s.copy(generateOriginal = form, savedMessage = "${mode.name} saved")
+                }
+            }
         }
     }
 

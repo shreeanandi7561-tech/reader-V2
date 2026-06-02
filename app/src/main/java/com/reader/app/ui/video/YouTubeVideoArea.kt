@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -254,94 +257,109 @@ fun YouTubeVideoArea(
                 })
             }
     ) {
-        AndroidView(
-            factory = { playerView },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        if (handle.hasError) {
-            // Embed-blocked / not-found / generic player error: cover
-            // YouTube's own tiny error page with a friendly Hindi
-            // message + an explicit "Open in YouTube" intent so the
-            // student is never stuck. Chrome (play/pause/seek) is
-            // suppressed in this branch — the student can't do
-            // anything useful with a player that's reporting an error.
-            VideoErrorOverlay(
-                videoId = videoId,
-                onOpenInYouTube = {
-                    // Generic ACTION_VIEW on the canonical watch URL.
-                    // Android's intent dispatcher will route this to
-                    // the YouTube app if installed (and the user has
-                    // chosen it as the default for youtube.com URLs);
-                    // otherwise the system chooser comes up with the
-                    // installed browsers as fallback. Going through the
-                    // https URL is more robust than the
-                    // `vnd.youtube:` scheme, which only opens the
-                    // YouTube app and silently no-ops if it isn't
-                    // installed.
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://www.youtube.com/watch?v=$videoId")
-                    ).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    runCatching { context.startActivity(intent) }
-                        .onFailure { _: Throwable ->
-                            // No YouTube app AND no browser — extremely
-                            // rare on a real device. Nothing useful we
-                            // can do beyond leaving the overlay up.
-                        }
-                }
-            )
-        } else {
-            // Top + bottom gradient scrim so the chrome is readable
-            // over any video frame. Only painted while the chrome is
-            // visible to keep the playing-state experience clean.
-            AnimatedVisibility(
-                visible = chromeVisible,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    ChromeScrim(modifier = Modifier.fillMaxSize())
-                    ChromeOverlay(
-                        handle = handle,
-                        isFullscreen = isFullscreen,
-                        onFullscreenToggle = {
-                            bumpInteraction()
-                            onFullscreenToggle()
-                        },
-                        onCloseFullscreen = onCloseFullscreen,
-                        onAnyInteraction = { bumpInteraction() },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            val screenAspectRatio = if (maxHeight.value > 0f) maxWidth.value / maxHeight.value else 16f / 9f
+            val videoAspectRatio = 16f / 9f
+            val videoModifier = if (screenAspectRatio > videoAspectRatio) {
+                Modifier.fillMaxHeight().aspectRatio(videoAspectRatio)
+            } else {
+                Modifier.fillMaxWidth().aspectRatio(videoAspectRatio)
             }
+            
+            Box(modifier = videoModifier) {
+                AndroidView(
+                    factory = { playerView },
+                    modifier = Modifier.fillMaxSize()
+                )
 
-            // Big centre play button when paused / cued — gives the
-            // student a clear "tap to start" affordance even when the
-            // chrome is currently hidden.
-            if (!handle.isPlaying && handle.isReady) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
-                        .clickable {
-                            scope.launch {
-                                handle.play()
-                                bumpInteraction()
+                if (handle.hasError) {
+                    // Embed-blocked / not-found / generic player error: cover
+                    // YouTube's own tiny error page with a friendly Hindi
+                    // message + an explicit "Open in YouTube" intent so the
+                    // student is never stuck. Chrome (play/pause/seek) is
+                    // suppressed in this branch — the student can't do
+                    // anything useful with a player that's reporting an error.
+                    VideoErrorOverlay(
+                        videoId = videoId,
+                        onOpenInYouTube = {
+                            // Generic ACTION_VIEW on the canonical watch URL.
+                            // Android's intent dispatcher will route this to
+                            // the YouTube app if installed (and the user has
+                            // chosen it as the default for youtube.com URLs);
+                            // otherwise the system chooser comes up with the
+                            // installed browsers as fallback. Going through the
+                            // https URL is more robust than the
+                            // `vnd.youtube:` scheme, which only opens the
+                            // YouTube app and silently no-ops if it isn't
+                            // installed.
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.youtube.com/watch?v=$videoId")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
+                            runCatching { context.startActivity(intent) }
+                                .onFailure { _: Throwable ->
+                                    // No YouTube app AND no browser — extremely
+                                    // rare on a real device. Nothing useful we
+                                    // can do beyond leaving the overlay up.
+                                }
+                        }
                     )
+                } else {
+                    // Top + bottom gradient scrim so the chrome is readable
+                    // over any video frame. Only painted while the chrome is
+                    // visible to keep the playing-state experience clean.
+                    AnimatedVisibility(
+                        visible = chromeVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            ChromeScrim(modifier = Modifier.fillMaxSize())
+                            ChromeOverlay(
+                                handle = handle,
+                                isFullscreen = isFullscreen,
+                                onFullscreenToggle = {
+                                    bumpInteraction()
+                                    onFullscreenToggle()
+                                },
+                                onCloseFullscreen = onCloseFullscreen,
+                                onAnyInteraction = { bumpInteraction() },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    // Big centre play button when paused / cued — gives the
+                    // student a clear "tap to start" affordance even when the
+                    // chrome is currently hidden.
+                    if (!handle.isPlaying && handle.isReady) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.55f))
+                                .clickable {
+                                    scope.launch {
+                                        handle.play()
+                                        bumpInteraction()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -389,10 +407,11 @@ private fun ChromeOverlay(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
+    var qualityMenuExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
 
-        /* Top-right cluster: speed + fullscreen */
+        /* Top-right cluster: quality + speed + fullscreen */
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -400,6 +419,39 @@ private fun ChromeOverlay(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Quality selector button.
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable {
+                        qualityMenuExpanded = true
+                        onAnyInteraction()
+                    }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = handle.preferredQuality,
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
+                DropdownMenu(
+                    expanded = qualityMenuExpanded,
+                    onDismissRequest = { qualityMenuExpanded = false }
+                ) {
+                    listOf("Auto", "360p", "480p", "720p", "1080p").forEach { q ->
+                        DropdownMenuItem(
+                            text = { Text(q) },
+                            onClick = {
+                                handle.preferredQuality = q
+                                qualityMenuExpanded = false
+                                onAnyInteraction()
+                            }
+                        )
+                    }
+                }
+            }
+
             // Speed cycle button.
             Box(
                 modifier = Modifier
