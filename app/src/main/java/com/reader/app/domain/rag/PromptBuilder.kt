@@ -90,6 +90,10 @@ object PromptBuilder {
           simplified ASCII fractions like (1)/(2) or the "÷" symbol — use 
           \frac{a}{b} exclusively. The app now has full 
           MathJax integration. Emit complete standard LaTeX.
+        - CRITICAL RULE: DO NOT put any Hindi or Devanagari text inside the $...$ 
+          or $$...$$ math blocks. MathJax cannot render Hindi characters correctly. 
+          Keep ALL language/text OUTSIDE the math blocks. Only use the blocks for 
+          pure mathematical symbols and English variables.
         - Keep formatting subtle — one or two emphasised terms, not a
           wall of bold. The TTS engine speaks the plain text underneath,
           so the spoken version must still flow like one human talking
@@ -173,6 +177,10 @@ object PromptBuilder {
           as text like "(1)/(2)" or use the "÷" symbol — use \frac{a}{b} 
           exclusively. The app now has perfect MathJax support 
           and renders standard LaTeX beautifully.
+        - CRITICAL RULE: DO NOT put any Hindi or Devanagari text inside the $...$ 
+          or $$...$$ math blocks. MathJax cannot render Hindi characters correctly. 
+          Keep ALL language/text OUTSIDE the math blocks. Only use the blocks for 
+          pure mathematical symbols and English variables.
         - Keep formatting subtle — the TTS engine speaks the plain text
           underneath, so the spoken version must still feel like a tutor
           talking, not an outline being recited. No emojis, no tables,

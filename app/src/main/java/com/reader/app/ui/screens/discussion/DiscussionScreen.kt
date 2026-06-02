@@ -149,6 +149,21 @@ fun DiscussionScreen(
     var isFullscreen by remember { mutableStateOf(false) }
     val videoId = state.youtubeVideoId
 
+    val activity = context as? androidx.activity.ComponentActivity
+    LaunchedEffect(isFullscreen) {
+        if (activity != null) {
+            val windowInsetsController = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+            if (isFullscreen) {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+                windowInsetsController.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                windowInsetsController.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER
+                windowInsetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
     // Push the player's playhead into the VM ~once per second. This is
     // what `ask()` reads when building the prompt window. snapshotFlow
     // observes the Compose-state field on the handle; the VM stores it
