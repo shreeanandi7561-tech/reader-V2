@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -431,13 +432,24 @@ private fun ChatMessageRow(
         var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
         var textCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
-        Text(
-            text  = display,
-            style = style,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.onGloballyPositioned { textCoords = it },
-            onTextLayout = { textLayout = it }
-        )
+        if (msg.type == ReadingViewModel.MsgType.Assistant && !msg.isStreaming) {
+            val textColorBytes = MaterialTheme.colorScheme.onBackground.toArgb()
+            val textColorHex = String.format("#%06X", (0xFFFFFF and textColorBytes))
+            
+            com.reader.app.ui.components.MathJaxViewer(
+                markdown = msg.text,
+                textColorHex = textColorHex,
+                textSizePx = 17
+            )
+        } else {
+            Text(
+                text  = display,
+                style = style,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.onGloballyPositioned { textCoords = it },
+                onTextLayout = { textLayout = it }
+            )
+        }
 
         SpokenWordTracker(
             state             = autoScroll,

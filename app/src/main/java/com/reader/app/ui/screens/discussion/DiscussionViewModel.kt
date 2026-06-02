@@ -842,7 +842,17 @@ class DiscussionViewModel(
             collectedTimestamps.toList().sorted()
         }
 
-        if (timestamps.isEmpty()) return null
+        // Deduplicate timestamps to prevent visually similar screenshots (at least 2.0s apart).
+        // Prioritize timestamps closest to the paused moment.
+        val distinctTimestamps = mutableListOf<Double>()
+        for (ts in timestamps.sortedBy { kotlin.math.abs(it - pausedAtSec) }) {
+            if (distinctTimestamps.none { kotlin.math.abs(it - ts) < 2.0 }) {
+                distinctTimestamps.add(ts)
+            }
+        }
+        val finalTimestamps = distinctTimestamps.sorted()
+
+        if (finalTimestamps.isEmpty()) return null
 
         // ---- Step 4: Capture frames via the composite source --------------
         //
@@ -851,7 +861,7 @@ class DiscussionViewModel(
         // mostly-black frames per-cell. Cancellation propagates;
         // anything else degrades to text-only.
         val images = try {
-            source.captureFrames(timestamps)
+            source.captureFrames(finalTimestamps)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {

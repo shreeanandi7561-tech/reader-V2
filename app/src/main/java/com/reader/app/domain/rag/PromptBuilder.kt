@@ -86,9 +86,9 @@ object PromptBuilder {
           overkill for a one-doubt reply — skip them unless the answer is
           clearly multi-part.
         - Inline math goes inside $ … $ (e.g. ${'$'}x^2 + 3$, $\frac{1}{2}$,
-          $\theta$, $\pi r^2$). The app renders Greek letters / common
-          operators as Unicode and the TTS engine speaks the equation in
-          natural words.
+          $\theta$, $\pi r^2$) and block math goes inside $$ … $$. Do NOT use
+          simplified ASCII fractions like (1)/(2) — the app now has full 
+          MathJax integration. Emit complete standard LaTeX.
         - Keep formatting subtle — one or two emphasised terms, not a
           wall of bold. The TTS engine speaks the plain text underneath,
           so the spoken version must still flow like one human talking
@@ -165,12 +165,11 @@ object PromptBuilder {
           and a short numbered list when walking through sub-steps.
           Headings (# …) are usually overkill for one step — skip them
           unless you are clearly comparing two separate sub-derivations.
-        - Math expressions go inside $ … $. The app understands
-          \frac{a}{b}, \sqrt{x}, x^2, x_{n}, Greek letters (\pi, \theta,
-          \alpha, …) and common operators (\times, \leq, \to, \sum,
-          \int, …) — they render as Unicode (so $\frac{1}{2}$ shows as
-          "(1)/(2)") and the TTS engine reads them in natural English
-          ("1 upon 2", "x squared", "theta", "pi r squared").
+        - Math expressions MUST use proper LaTeX formatting. Use ${'$'} … ${'$'} for 
+          inline math (e.g. ${'$'}\frac{a}{b}${'$'}, ${'$'}\sqrt{x}${'$'}, ${'$'}x^2${'$'}, ${'$'}x_{n}${'$'}, ${'$'}\pi${'$'})
+          and ${'$'}${'$'} … ${'$'}${'$'} for block equations. Do NOT try to write out fractions 
+          as text like "(1)/(2)" — the app now has perfect MathJax support 
+          and renders standard LaTeX beautifully.
         - Keep formatting subtle — the TTS engine speaks the plain text
           underneath, so the spoken version must still feel like a tutor
           talking, not an outline being recited. No emojis, no tables,
