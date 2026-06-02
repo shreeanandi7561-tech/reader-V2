@@ -168,9 +168,7 @@ object FrameTimestampSampler {
         val after = cueBoundariesAfter(cues, pause)
 
         // Step 3: pick up to 2 "before" slots — prefer real cue
-        // boundaries; fall back to fixed-offset moments when the
-        // transcript runs out (e.g. pause is in the first 10 s of
-        // the video).
+        // boundaries; fall back to fixed-offset moments.
         val twoBefore = pickTwoSpread(
             candidates = before,
             anchor     = pause,
@@ -187,14 +185,33 @@ object FrameTimestampSampler {
         )
 
         // Step 5: combine, clamp, dedupe, sort.
-        val out = ArrayList<Double>(5)
+        var out = ArrayList<Double>(5)
         out += twoBefore
         out += pause
         out += twoAfter
-        return out
-            .map { it.coerceIn(0.0, upperBound) }
-            .distinct()
-            .sorted()
+        out = out.map { it.coerceIn(0.0, upperBound) }.distinct().toMutableList() as ArrayList<Double>
+
+        // Step 6: Guarantee EXACTLY 5 frames. The user's prompt strongly expects
+        // exactly 5 images to be sent (2 before, 1 at, 2 after equivalent) and 
+        // will break if deduplication reduces this count.
+        var offsetMultiplier = 1.0
+        while (out.size < 5) {
+            val candidate = (pause + (offsetMultiplier * 2.5)).coerceIn(0.0, upperBound)
+            if (!out.contains(candidate)) {
+                out.add(candidate)
+            } else {
+                val candidateNeg = (pause - (offsetMultiplier * 2.5)).coerceIn(0.0, upperBound)
+                if (!out.contains(candidateNeg)) {
+                    out.add(candidateNeg)
+                }
+            }
+            offsetMultiplier += 1.0
+            
+            // Safety break just in case bounds make it impossible
+            if (offsetMultiplier > 50.0) break
+        }
+
+        return out.sorted().take(5) // Ensure strictly 5
     }
 
     /** Window length → sample count. See class kdoc step 1. */

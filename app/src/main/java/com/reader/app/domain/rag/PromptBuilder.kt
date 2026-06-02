@@ -88,8 +88,10 @@ object PromptBuilder {
         - Inline math goes inside $ … $ (e.g. ${'$'}x^2 + 3$, $\frac{1}{2}$,
           $\theta$, $\pi r^2$) and block math goes inside $$ … $$. Do NOT use
           simplified ASCII fractions like (1)/(2) or the "÷" symbol — use 
-          \frac{a}{b} exclusively. The app now has full 
-          MathJax integration. Emit complete standard LaTeX.
+          \frac{a}{b} exclusively. 
+        - YOU MUST USE MATHJax/LaTeX for all math. Do NOT write equations out as plain 
+          text words (e.g. don't just say "x sine theta" in words, actually write ${'$'}x \sin \theta${'$'}). 
+          Show the equations visually using LaTeX, and then explain them in words.
         - CRITICAL RULE: DO NOT put any Hindi or Devanagari text inside the $...$ 
           or $$...$$ math blocks. MathJax cannot render Hindi characters correctly. 
           Keep ALL language/text OUTSIDE the math blocks. Only use the blocks for 
@@ -175,8 +177,10 @@ object PromptBuilder {
           inline math (e.g. ${'$'}\frac{a}{b}${'$'}, ${'$'}\sqrt{x}${'$'}, ${'$'}x^2${'$'}, ${'$'}x_{n}${'$'}, ${'$'}\pi${'$'})
           and ${'$'}${'$'} … ${'$'}${'$'} for block equations. Do NOT try to write out fractions 
           as text like "(1)/(2)" or use the "÷" symbol — use \frac{a}{b} 
-          exclusively. The app now has perfect MathJax support 
-          and renders standard LaTeX beautifully.
+          exclusively.
+        - YOU MUST USE MATHJax/LaTeX for all math. Do NOT write equations out as plain 
+          text words (e.g. don't just say "x sine theta" in words, actually write ${'$'}x \sin \theta${'$'}). 
+          Show the equations visually using LaTeX, and then explain them in words. Ensure division uses over/under format instead of inline slash.
         - CRITICAL RULE: DO NOT put any Hindi or Devanagari text inside the $...$ 
           or $$...$$ math blocks. MathJax cannot render Hindi characters correctly. 
           Keep ALL language/text OUTSIDE the math blocks. Only use the blocks for 
