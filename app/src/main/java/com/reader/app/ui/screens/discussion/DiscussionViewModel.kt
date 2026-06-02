@@ -238,6 +238,7 @@ class DiscussionViewModel(
      */
     @Volatile
     private var videoFrameSource: VideoFrameSource = VideoFrameSource.NoOp
+    private var lastMultimodalPausedAtSec: Double? = null
 
     init {
         viewModelScope.launch {
@@ -542,44 +543,57 @@ class DiscussionViewModel(
             val multimodalReply: MultimodalAnswer? =
                 if (s.youtubeVideoId != null && pausedAtSec != null &&
                     LlmProvider.supportsImageContent(cfg.provider, cfg.modelName)) {
-                    // Capture pausedAtSec into a non-null local before
-                    // the try block — smart casts can't be relied
-                    // upon across lambda boundaries even for inline
-                    // functions when the captured val is referenced
-                    // by a nested suspend call.
-                    val anchor: Double = pausedAtSec
-                    // NOTE: we deliberately use try/catch instead of
-                    // runCatching here. Kotlin stdlib's `runCatching`
-                    // catches every Throwable INCLUDING
-                    // CancellationException — that's a known footgun
-                    // for coroutine code, because it silently
-                    // swallows structured-cancellation signals.
-                    // If the parent viewModelScope is cancelled
-                    // mid-capture (e.g. user navigates away while we
-                    // are seeking and snapshotting frames), we want
-                    // the cancellation to propagate immediately
-                    // rather than fall through to the text-only
-                    // streaming path and waste another suspension
-                    // point trying to start an LLM call we don't
-                    // want any more.
-                    try {
-                        tryMultimodalReply(
-                            cfg              = cfg,
-                            documentId       = documentId,
-                            docText          = docText,
-                            question         = question,
-                            history          = history,
-                            toneProfile      = _state.value.toneProfile,
-                            pausedAtSec      = anchor
-                        )
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Throwable) {
-                        // Any non-cancellation failure → silently
-                        // fall through to the text-only path. The
-                        // student never sees a multimodal-specific
-                        // error.
+                    val isSameAsLast = lastMultimodalPausedAtSec != null &&
+                        kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0
+
+                    if (isSameAsLast) {
+                        // Skip capturing identical screenshots to save tokens/time if
+                        // user asks consecutive follow-up questions while paused.
                         null
+                    } else {
+                        // Capture pausedAtSec into a non-null local before
+                        // the try block — smart casts can't be relied
+                        // upon across lambda boundaries even for inline
+                        // functions when the captured val is referenced
+                        // by a nested suspend call.
+                        val anchor: Double = pausedAtSec
+                        // NOTE: we deliberately use try/catch instead of
+                        // runCatching here. Kotlin stdlib's `runCatching`
+                        // catches every Throwable INCLUDING
+                        // CancellationException — that's a known footgun
+                        // for coroutine code, because it silently
+                        // swallows structured-cancellation signals.
+                        // If the parent viewModelScope is cancelled
+                        // mid-capture (e.g. user navigates away while we
+                        // are seeking and snapshotting frames), we want
+                        // the cancellation to propagate immediately
+                        // rather than fall through to the text-only
+                        // streaming path and waste another suspension
+                        // point trying to start an LLM call we don't
+                        // want any more.
+                        try {
+                            val reply = tryMultimodalReply(
+                                cfg              = cfg,
+                                documentId       = documentId,
+                                docText          = docText,
+                                question         = question,
+                                history          = history,
+                                toneProfile      = _state.value.toneProfile,
+                                pausedAtSec      = anchor
+                            )
+                            if (reply != null) {
+                                lastMultimodalPausedAtSec = pausedAtSec
+                            }
+                            reply
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Throwable) {
+                            // Any non-cancellation failure → silently
+                            // fall through to the text-only path. The
+                            // student never sees a multimodal-specific
+                            // error.
+                            null
+                        }
                     }
                 } else null
 
