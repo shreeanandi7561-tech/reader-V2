@@ -141,38 +141,35 @@ object McqGenerator {
         translate. Numbers stay as numbers regardless.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  CORE PRINCIPLE — COVERAGE OVER PURITY                     ║
+        ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
         ╚════════════════════════════════════════════════════════════╝
-        The user has explicitly asked for MAXIMUM COVERAGE. They
-        would rather see ALL questions in the transcript with
-        AI-generated options than miss real questions because the
-        teacher didn't read out four explicit options. So:
+        The user has explicitly asked for MAXIMUM COVERAGE. There are
+        two situations you must handle:
 
-        - Order doesn't matter. Question numbers don't matter.
-          Sequence in the source doesn't matter. Just include
-          everything that is a question the student should be able
-          to answer.
-        - If the transcript shows the question text (whether the
-          teacher reads it from a slide, paraphrases it, or just
-          asks "ab batao iska answer kya hoga"), EXTRACT it.
+        SITUATION 1: THE VIDEO CONTAINS MCQs OR WORKED EXAMPLES
+        - If the teacher reads or discusses questions, YOU MUST EXTRACT THEM.
+        - Order doesn't matter. Include everything that is a question.
         - If the transcript shows the question + the correct answer
-          but NO options, EXTRACT it and GENERATE 4 options
-          yourself, putting the actual answer at one of the four
-          slots and 3 plausible-but-wrong distractors at the others.
-          Mark `source = "ai_filled"`. This is normal and expected
-          — do not skip such questions.
-        - If only 1, 2, or 3 options are stated explicitly, FILL the
-          remaining slots with plausible distractors. Same `ai_filled`
-          marker. The four-option array is non-negotiable.
-        - If the teacher walks through a worked example like
-          "agar speed 60 km/h hai aur time 2 hours hai, distance
-          kya hoga?", that's a QUESTION. Extract it. Compute the
-          correct answer (120 km), and generate 3 wrong distractors
-          (e.g. 30, 60, 240). `source = "ai_filled"`.
-        - When in doubt about whether something is a question:
-          INCLUDE IT. Filtering bad ones is the user's job (they
-          can see the AI-filled tag and skip / re-do). Missing
-          good ones is your job to prevent.
+          but NO options, EXTRACT it and GENERATE 4 options yourself
+          (`source = "ai_filled"`).
+        - If only 1, 2, or 3 options are stated, FILL the rest.
+        - Worked examples ("agar speed 60 km/h hai... distance kya hoga?")
+          are QUESTIONS. Extract them, compute the answer, generate options.
+
+        SITUATION 2: THE VIDEO IS PURE THEORY (NO EXPLICIT QUESTIONS)
+        - If the video is purely theoretical teaching/concepts and does NOT
+          discuss any specific practice questions or MCQs:
+          YOU MUST GENERATE THE TOP 10-20 MOST IMPORTANT MCQs based on the
+          concepts taught in the video.
+        - Do NOT return an empty list.
+        - Identify the most important facts, concepts, or difficulty-level
+          appropriate questions that test the student's understanding of this
+          chapter/topic.
+        - Generate the question, the correct answer, and 3 plausible distractors.
+        - Mark `source = "ai_filled"` for all of them.
+
+        When in doubt about whether something is a question:
+        INCLUDE IT OR GENERATE ONE ABOUT IT.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  WHAT COUNTS AS A QUESTION                                 ║
@@ -809,12 +806,9 @@ object McqGenerator {
     ): List<Cleaned> {
         val nudge = if (retryNudge) {
             "\n\nIMPORTANT: Your previous attempt returned ZERO questions. " +
-                "The transcript DOES contain MCQs — read the full transcript " +
-                "carefully looking for option A/B/C/D, numbered options " +
-                "(1)/2)/3)/4)), Hindi ordinals (pehla/doosra/teesra/chautha, " +
-                "पहला/दूसरा/तीसरा/चौथा), and answer reveals (sahi answer, " +
-                "correct option, doosra wala). Extract every MCQ you can " +
-                "find. Returning [] again is NOT acceptable.\n"
+                "If the transcript has them, extract them. If it is pure theory, " +
+                "GENERATE 10-20 conceptual MCQs based on the facts in the text. " +
+                "Returning [] again is NOT acceptable.\n"
         } else ""
         val raw = LlmRepository().askStreamingFull(
             config       = config,
@@ -829,12 +823,10 @@ object McqGenerator {
             },
             jsonMode     = true,
             maxTokens    = 8_192,
-            // Low temperature for verbatim preservation: the user
-            // explicitly wants the question + option text "exact same"
-            // as the transcript. 0.2 keeps the model deterministic
-            // enough to copy verbatim while leaving just enough
-            // wiggle-room to fill in missing options realistically.
-            temperature  = 0.2,
+            // Medium-low temperature (0.4): predictable extraction when
+            // present verbatim, but creative enough to generate distractors
+            // and conceptual questions when the video is pure theory.
+            temperature  = 0.4,
         ).getOrThrow()
 
         val cleaned = stripFences(raw)

@@ -93,198 +93,102 @@ window.MathJax = {
         You are an expert study-notes editor for exam-prep students.
         The text below is the transcript of an educational video. Your
         job is to convert it into a CLEAN, HIGHLY-STRUCTURED, VISUALLY
-        ORGANISED HTML revision document a student can scan in seconds
-        before an exam.
+        ORGANISED HTML revision document.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE, READ FIRST)            ║
         ╚════════════════════════════════════════════════════════════╝
         The user prompt starts with a line "OUTPUT LANGUAGE: <lang>".
-        That is the ONLY language you may use for body content
-        (headings, paragraphs, bullets, callouts, table cells,
-        examples). DO NOT translate the transcript. DO NOT switch to
-        English for the notes when the transcript is Hindi /
-        Hinglish. If the transcript is in Devanagari Hindi, the
-        notes are in Devanagari Hindi. If the transcript is
-        Hinglish (Hindi in Roman script), notes are Hinglish — keep
-        the same code-switching ratio you see in the transcript.
-        Technical terms ("integration", "torque", "percentage") may
-        stay in English; everything else MUST match the source
-        language.
+        That is the ONLY language you may use for body content.
+        DO NOT translate the transcript. If the transcript is in Hindi
+        (Devanagari), the notes MUST be in Hindi. If Hinglish, use Hinglish.
+        Keep the Exact wording and explanations where appropriate.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  CONTENT TYPE LOGIC — THEORY VS MATH/LOGIC                 ║
+        ╚════════════════════════════════════════════════════════════╝
+        Adapt your notes based on the core focus of the video:
+        - FOR THEORY/STORY-BASED VIDEOS: Produce notes in the EXACT SAME
+          language, tone, and style as the video. Ensure the complete story,
+          timeline, and explanations are captured concisely. A student must
+          understand the complete narrative (why, when, how) just by reading
+          these notes, without needing to re-watch the video.
+        - FOR MATH/LOGIC/PROBLEM-SOLVING: Organise the notes using logic,
+          concepts, methods, theory, and examples. The examples must clearly
+          illustrate the concepts. The steps, logic, difficulty level, and
+          method of solving MUST EXACTLY MATCH the transcript. Retain the
+          teacher's approach perfectly.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  CRITICAL — WHAT YOU MUST NOT DO                           ║
         ╚════════════════════════════════════════════════════════════╝
-        - DO NOT just copy the transcript with `<p>` tags around each
-          paragraph. The student already has the video. Pasting the
-          transcript with HTML wrapping is USELESS and the WRONG
-          OUTPUT.
-        - DO NOT produce a single wall of prose. Long unbroken
-          paragraphs are the failure mode this prompt exists to
-          prevent.
-        - DO NOT keep verbal filler ("ab dekho", "achchha", "uh", "so
-          basically", "main keh raha hoon ki"), repeats, or off-topic
-          asides.
-        - DO NOT keep the transcript's exact sentence structure. The
-          student has heard it once; what they need now is the
-          information re-arranged for revision.
+        - DO NOT include a Table of Contents (TOC). The user explicitly forbids it.
+        - DO NOT just copy the transcript with `<p>` tags.
+        - DO NOT keep verbal filler ("ab dekho", "uh").
+        - DO NOT invent a style. Follow the required style blocks below exactly.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  CRITICAL — WHAT YOU MUST DO                               ║
-        ╚════════════════════════════════════════════════════════════╝
-        Treat this as a re-write, not a wrap. For every concept the
-        teacher covers, decide its proper place in the notes
-        (definition / theory / formula / worked example / common
-        mistake / summary) and put it under the matching heading with
-        the matching structural element. Aim for ~50-70% of the
-        transcript's length but 100% of its teaching content.
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  REQUIRED STRUCTURE — USE EVERY APPLICABLE ELEMENT          ║
+        ║  REQUIRED STRUCTURE — USE EVERY APPLICABLE ELEMENT         ║
         ╚════════════════════════════════════════════════════════════╝
         1.  `<h1>` — exactly ONE, the topic title, at the very top.
-        2.  `<nav class="toc">` containing `<ol>` of `<a href="#id">`
-            anchor links — ONE entry per `<h2>` in document order. The
-            student MUST be able to jump to any section in 1 tap. This
-            is non-negotiable.
-        3.  `<h2 id="…">` — major sections. Use 4-10 of them. Never
-            one giant section. Suggested groupings (pick what fits
-            the content):
-              • Quick overview / Kya seekhna hai
-              • Definitions / Concepts
-              • Theory / Approach
-              • Worked examples
-              • Step-by-step solutions
-              • Common mistakes / Galtiyan
-              • Summary / Revision checklist
+        2.  NO TOC. Start sections immediately.
+        3.  `<h2>` — major sections. Use 4-10 of them. Never one giant section.
         4.  `<h3>` — subsections inside an `<h2>`.
-        5.  `<h4>` — only when actually nested (e.g. Case 1 / Case 2
-            inside an example).
-        6.  `<ul>` and `<ol>` — USE AGGRESSIVELY. If you have 3+
-            related points in prose, convert them to a list. List
-            items should each be ONE clear short line, not a
-            paragraph.
-        7.  `<p>` — ONLY for genuinely linear narrative bridges
-            between sections. Default to lists.
-        8.  `<div class="callout important">` — the key idea of each
-            section. Open with `<strong>Key Point:</strong>`.
-        9.  `<div class="callout note">` — for "yaad rakhna" tips,
-            asides, mnemonics. Open with `<strong>Note:</strong>`.
-        10. `<div class="callout example">` — every worked example in
-            its own block. Number them: `<strong>Example 1:</strong>`,
-            etc.
-        11. `<div class="callout formula">` — every formula in its own
-            box.
-        12. `<div class="callout warning">` — common mistake / "yeh
-            galti mat karna" point.
-        13. `<div class="callout summary"><strong>Summary:</strong>
-            <ul>…</ul></div>` — at the end of EVERY `<h2>` section, a
-            3-5 bullet recap. Non-negotiable.
-        14. `<table>` with `<thead>` / `<tbody>` — when comparing 2+
-            things (definitions vs examples, before vs after, etc.).
-            Only when it actually helps.
-        15. `<ol class="solution"><li>Step 1: …</li>…</ol>` — for any
-            worked problem with steps. Each step a separate `<li>`.
+        5.  `<ul>` and `<ol>` — USE AGGRESSIVELY for related points.
+        6.  `<div class="callout important">` — key idea (open with `<strong>Key Point:</strong>`).
+        7.  `<div class="callout note">` — for memory tips (open with `<strong>Note:</strong>`).
+        8.  `<div class="callout example">` — every worked example.
+        9.  `<div class="callout formula">` — every formula in its own box.
+        10. `<div class="callout warning">` — common mistakes.
+        11. `<div class="callout summary"><strong>Summary:</strong>...` — at the end of EVERY `<h2>` section.
+        12. `<ol class="solution"><li>Step 1: …</li>…</ol>` — for any worked problem with steps.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
         ╚════════════════════════════════════════════════════════════╝
-        The page LOADS MathJax 3. You MUST emit math expressions in
-        LaTeX so they typeset properly:
-
+        You MUST emit math expressions in LaTeX for MathJax.
         - INLINE math: wrap in single dollar signs (or `\(...\)`).
-          Example: `velocity @DOL@v = u + at@DOL@ ke formula se nikalta hai.`
-        - DISPLAY math (own line, centered): wrap in double dollars
-          (or `\[...\]`).
-          Example: `@DOL@@DOL@ E = mc^{2} @DOL@@DOL@`
-        - Inside `<div class="callout formula">`, put the formula on
-          its own line in display math. Example:
-          `<div class="callout formula">@DOL@@DOL@ \frac{d}{dx}(\sin x) = \cos x @DOL@@DOL@</div>`
-        - Use proper LaTeX commands for fractions (`\frac{a}{b}`),
-          exponents (`x^{2}`), subscripts (`a_{n}`), Greek letters
-          (`\pi`, `\theta`, `\Delta`), roots (`\sqrt{x}`),
-          summations (`\sum_{i=1}^{n}`), integrals (`\int_0^1`),
-          vectors (`\vec{F}`), matrices (`\begin{pmatrix}…\end{pmatrix}`),
-          and any structured math.
-        - Plain-text math is OK ONLY for trivial inline asides
-          ("speed × time"). Anything with structure → LaTeX.
-        - DO NOT escape dollar signs. DO NOT use unicode like ²/³ to
-          mimic exponents — write `x^{2}` so MathJax handles it.
-        - The host wraps the page with the MathJax script tag itself,
-          so you do not need to add it; just emit clean LaTeX.
+        - DISPLAY math: wrap in double dollars (or `\[...\]`).
+        - Inside `<div class="callout formula">`, put formula in display math.
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  VISUAL HIERARCHY RULES                                     ║
+        ║  REQUIRED <style> BLOCK — FIXED EYE-COMFORT TEMPLATE       ║
         ╚════════════════════════════════════════════════════════════╝
-        - Every `<h2>` opens with a 1-line intro `<p>` BEFORE bullets.
-        - Every `<h2>` closes with a `.callout.summary`.
-        - No paragraph longer than ~120 words. Break into list / sub-
-          headings if it grows.
-        - Use `<strong>` to highlight the technical term being
-          defined; `<em>` for emphasis on a verb / mnemonic. Do not
-          over-bold — one or two per paragraph is enough.
+        You MUST emit this EXACT `<style>` block in `<head>`. Do not change it.
+        It provides the bilingual font support and eye-comfort colors requested.
 
-        ╔════════════════════════════════════════════════════════════╗
-        ║  LANGUAGE — WHEN TO SIMPLIFY                                ║
-        ╚════════════════════════════════════════════════════════════╝
-        - PRESERVE technical terms verbatim ("integration", "torque",
-          "ज्यामितीय माध्य", etc.).
-        - SIMPLIFY long sentences into shorter, student-friendly form.
-          Replace verbose phrasings with plain ones.
-          Example BEFORE (Hinglish): "Toh ab humein yeh dekhna hai
-          ki jab koi force apply ho raha hai us object pe, aur woh
-          object move nahi kar raha hai, toh kya hoga…"
-          Example AFTER (Hinglish): "<strong>Static friction</strong>
-          tab kaam karta hai jab object par force lage par object
-          hile nahi."
-        - Where the teacher uses an analogy or memory trick, keep it
-          but in a `.callout.note`.
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  REQUIRED <style> BLOCK                                     ║
-        ╚════════════════════════════════════════════════════════════╝
-        You MUST emit a `<style>` block in `<head>` that produces a
-        visually-distinct, print-ready document. Required rules:
-
-        - `@page { size: A4; margin: 1.8cm; }`.
-        - System sans-serif body, 11pt, line-height 1.55.
-        - `h1` 22pt bold, with a thin 2px bottom border.
-        - `h2` 16pt bold, with a 2px bottom accent border (use a
-          warm colour like `#cc6611`) and 24px top margin.
-        - `h3` 13pt bold; `h4` 12pt bold italic.
-        - `nav.toc` — light grey background `#f5f5f0`, 12px padding,
-          rounded 6px corners. Inner `ol` numbered, anchor links
-          underlined and in the accent colour.
-        - `.callout` base — left 4px solid border, 10px 14px padding,
-          margin 12px 0, border-radius 6px, `page-break-inside: avoid`.
-        - `.callout.important` — background `#fff3e0`, border `#ff9800`.
-        - `.callout.note`      — background `#e8f4fd`, border `#1e88e5`.
-        - `.callout.example`   — background `#e9f5ec`, border `#43a047`.
-        - `.callout.formula`   — background `#f5f0fa`, border `#8e24aa`.
-        - `.callout.warning`   — background `#ffebee`, border `#e53935`.
-        - `.callout.summary`   — background `#fff8e1`, border `#fbc02d`.
-        - `ul`, `ol` — 12px top margin, 6px between items.
-        - `ol.solution li` — 8px between steps, slight left padding.
-        - `table` — full collapse borders, header row in `#eaeaea`
-          background, cells 6px 8px padding, `page-break-inside:
-          avoid`.
-        - `.muted` — `color: #888; font-style: italic;`.
+        @page { size: A4; margin: 1.8cm; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Noto, sans-serif;
+            font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
+        }
+        h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }
+        h2 { font-size: 16pt; font-weight: 700; border-bottom: 2px solid #4a7c59; padding-bottom: 4px; margin-top: 24px; color: #4a7c59; }
+        h3 { font-size: 13pt; font-weight: 700; color: #333; }
+        h4 { font-size: 12pt; font-weight: 700; font-style: italic; color: #555; }
+        ul, ol { margin-top: 12px; }
+        ul li, ol li { margin-bottom: 6px; }
+        ol.solution li { margin-bottom: 8px; padding-left: 4px; }
+        .callout { border-left: 4px solid #888; padding: 10px 14px; margin: 12px 0; border-radius: 6px; page-break-inside: avoid; }
+        .callout.important { background: #fdf5e6; border-color: #d97706; }
+        .callout.note      { background: #f0f7f9; border-color: #0284c7; }
+        .callout.example   { background: #f1f8f4; border-color: #059669; }
+        .callout.formula   { background: #f9f5ff; border-color: #7c3aed; }
+        .callout.warning   { background: #fff1f2; border-color: #e11d48; }
+        .callout.summary   { background: #fefce8; border-color: #ca8a04; }
+        table { border-collapse: collapse; width: 100%; page-break-inside: avoid; margin: 12px 0; }
+        th, td { border: 1px solid #d4d4d4; padding: 6px 8px; text-align: left; }
+        thead th { background: #f3f4f6; }
+        .muted { color: #888; font-style: italic; }
+        mjx-container[display="true"] { margin: 12px 0; }
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT REQUIREMENTS                                        ║
         ╚════════════════════════════════════════════════════════════╝
         - Reply with EXACTLY one COMPLETE HTML document starting with
           `<!DOCTYPE html>` and ending with `</html>`.
-        - No prose before or after. No markdown fences. No
-          `Here is the document:` preamble.
-        - If part of the transcript is unintelligible, write
-          `<span class="muted">[transcript spasht nahi]</span>`
-          rather than inventing.
-        - All teaching content from the transcript must appear; no
-          omissions. But re-organised, not pasted.
-        - The document MUST contain at least 3 `<h2>` sections and
-          end with `</html>`. Truncated output = wrong output;
-          re-balance section length so the whole document fits.
+        - The document MUST contain at least 3 `<h2>` sections.
     """.trimIndent().replace(DOL, "\$")
 
     /**
@@ -465,7 +369,7 @@ window.MathJax = {
      * default shell so the WebView still renders something readable
      * and the PDF export keeps working.
      *
-     * The shell ships the same callout / TOC / page-print CSS the
+     * The shell ships the same callout and page-print CSS the
      * prompt asks the LLM for, plus the MathJax loader, so even on
      * the degraded path the document is structured, math typesets,
      * and Save as PDF works.
@@ -485,33 +389,27 @@ window.MathJax = {
               $MATHJAX_HEAD
               <style>
                 @page { size: A4; margin: 1.8cm; }
-                body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-                       font-size: 11pt; line-height: 1.55; color: #1d1d1f; }
-                h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #1d1d1f; padding-bottom: 6px; }
-                h2 { font-size: 16pt; font-weight: 700; border-bottom: 2px solid #cc6611;
-                     padding-bottom: 4px; margin-top: 24px; }
-                h3 { font-size: 13pt; font-weight: 700; }
-                h4 { font-size: 12pt; font-weight: 700; font-style: italic; }
-                nav.toc { background: #f5f5f0; padding: 12px 16px; border-radius: 6px;
-                          margin: 16px 0; page-break-inside: avoid; }
-                nav.toc ol { margin: 4px 0 4px 24px; padding: 0; }
-                nav.toc a { color: #cc6611; text-decoration: underline; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Noto, sans-serif;
+                    font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
+                }
+                h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }
+                h2 { font-size: 16pt; font-weight: 700; border-bottom: 2px solid #4a7c59; padding-bottom: 4px; margin-top: 24px; color: #4a7c59; }
+                h3 { font-size: 13pt; font-weight: 700; color: #333; }
+                h4 { font-size: 12pt; font-weight: 700; font-style: italic; color: #555; }
                 ul, ol { margin-top: 12px; }
                 ul li, ol li { margin-bottom: 6px; }
                 ol.solution li { margin-bottom: 8px; padding-left: 4px; }
-                .callout { border-left: 4px solid #888; padding: 10px 14px;
-                           margin: 12px 0; border-radius: 6px;
-                           page-break-inside: avoid; }
-                .callout.important { background: #fff3e0; border-color: #ff9800; }
-                .callout.note      { background: #e8f4fd; border-color: #1e88e5; }
-                .callout.example   { background: #e9f5ec; border-color: #43a047; }
-                .callout.formula   { background: #f5f0fa; border-color: #8e24aa; }
-                .callout.warning   { background: #ffebee; border-color: #e53935; }
-                .callout.summary   { background: #fff8e1; border-color: #fbc02d; }
-                table { border-collapse: collapse; width: 100%;
-                        page-break-inside: avoid; margin: 12px 0; }
-                th, td { border: 1px solid #d0d0c8; padding: 6px 8px; text-align: left; }
-                thead th { background: #eaeaea; }
+                .callout { border-left: 4px solid #888; padding: 10px 14px; margin: 12px 0; border-radius: 6px; page-break-inside: avoid; }
+                .callout.important { background: #fdf5e6; border-color: #d97706; }
+                .callout.note      { background: #f0f7f9; border-color: #0284c7; }
+                .callout.example   { background: #f1f8f4; border-color: #059669; }
+                .callout.formula   { background: #f9f5ff; border-color: #7c3aed; }
+                .callout.warning   { background: #fff1f2; border-color: #e11d48; }
+                .callout.summary   { background: #fefce8; border-color: #ca8a04; }
+                table { border-collapse: collapse; width: 100%; page-break-inside: avoid; margin: 12px 0; }
+                th, td { border: 1px solid #d4d4d4; padding: 6px 8px; text-align: left; }
+                thead th { background: #f3f4f6; }
                 .muted { color: #888; font-style: italic; }
                 mjx-container[display="true"] { margin: 12px 0; }
               </style>

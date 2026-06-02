@@ -285,6 +285,7 @@ fun DiscussionScreen(
                 videoContent     = videoContent,
                 videoId          = videoId,
                 pauseVideoIfNeeded = ::pauseVideoIfNeeded,
+                onSeekTo         = { videoHandle.seekTo(it) },
                 autoScroll       = autoScroll,
                 hasMic           = hasMic,
                 onBack           = onBack,
@@ -313,6 +314,7 @@ private fun DiscussionInlineLayout(
     videoContent: (@Composable (Modifier, Boolean) -> Unit)?,
     videoId: String?,
     pauseVideoIfNeeded: () -> Unit,
+    onSeekTo: ((Double) -> Unit)?,
     autoScroll: SpokenAutoScrollState,
     hasMic: Boolean,
     onBack: () -> Unit,
@@ -407,7 +409,8 @@ private fun DiscussionInlineLayout(
                         msg               = msg,
                         isCurrentlySpoken = idx == state.nowSpeakingIndex,
                         spokenRange       = state.nowSpokenRange.takeIf { idx == state.nowSpeakingIndex },
-                        autoScroll        = autoScroll
+                        autoScroll        = autoScroll,
+                        onTimestampClick  = onSeekTo
                     )
                 }
 
@@ -423,7 +426,8 @@ private fun DiscussionInlineLayout(
                             ),
                             isCurrentlySpoken = false,
                             spokenRange       = null,
-                            autoScroll        = autoScroll
+                            autoScroll        = autoScroll,
+                            onTimestampClick  = onSeekTo
                         )
                     }
                 }
@@ -594,7 +598,8 @@ private fun ChatMessageRow(
     msg: DiscussionViewModel.ChatMessage,
     isCurrentlySpoken: Boolean,
     spokenRange: IntRange?,
-    autoScroll: SpokenAutoScrollState
+    autoScroll: SpokenAutoScrollState,
+    onTimestampClick: ((Double) -> Unit)? = null
 ) {
     val rowBg by animateColorAsState(
         targetValue = if (isCurrentlySpoken)
@@ -741,7 +746,10 @@ private fun ChatMessageRow(
         if (msg.type == DiscussionViewModel.MsgType.Assistant &&
             msg.frameTimestampsSec.isNotEmpty()
         ) {
-            FrameGroundingFooter(timestampsSec = msg.frameTimestampsSec)
+            FrameGroundingFooter(
+                timestampsSec = msg.frameTimestampsSec,
+                onTimestampClick = onTimestampClick
+            )
         }
     }
 }
@@ -756,19 +764,42 @@ private fun ChatMessageRow(
  *   `Grounded on 3 video frames · 00:42 · 01:15 · 01:48`
  */
 @Composable
-private fun FrameGroundingFooter(timestampsSec: List<Double>) {
+private fun FrameGroundingFooter(
+    timestampsSec: List<Double>,
+    onTimestampClick: ((Double) -> Unit)? = null
+) {
     if (timestampsSec.isEmpty()) return
-    val labels = remember(timestampsSec) {
-        timestampsSec.map { formatTimestampMmSs(it) }
-    }
-    val noun = if (labels.size == 1) "video frame" else "video frames"
-    val summary = "Grounded on ${labels.size} $noun · " + labels.joinToString(" · ")
+    
     Spacer(Modifier.height(6.dp))
-    Text(
-        text  = summary,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-        color = MaterialTheme.colorScheme.primary,
-    )
+    
+    val noun = if (timestampsSec.size == 1) "video frame" else "video frames"
+    val prefix = "Grounded on ${timestampsSec.size} $noun · "
+    
+    // Use an inline layout to allow timestamps to wrap together
+    val style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+    
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(text = prefix, style = style, color = MaterialTheme.colorScheme.primary)
+        
+        timestampsSec.forEachIndexed { index, ts ->
+            Text(
+                text = formatTimestampMmSs(ts),
+                style = style,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = if (onTimestampClick != null) androidx.compose.ui.text.style.TextDecoration.Underline else null,
+                modifier = Modifier.clickable(enabled = onTimestampClick != null) {
+                    onTimestampClick?.invoke(ts)
+                }
+            )
+            if (index < timestampsSec.lastIndex) {
+                Text(text = "·", style = style, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
 }
 
 /** Format `seconds` as `mm:ss` (or `hh:mm:ss` for >= 1 hour). */

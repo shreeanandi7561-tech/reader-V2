@@ -131,20 +131,10 @@ class GenerationWorker(
         }
 
         // Mode A skips eligibility entirely — the detector already
-        // confirmed the questions exist. Mode B uses the existing
-        // eligibility flow.
-        if (questionSegments.isEmpty()) {
-            val elig = McqGenerator.checkEligibility(cfg, transcript).getOrElse { e ->
-                return failure(e.message ?: "Eligibility check fail").also {
-                    postFailure(GenerationManager.Type.Mcq, documentId, documentTitle, e.message ?: "Eligibility check fail")
-                }
-            }
-            if (!elig.containsMcqs) {
-                val reason = elig.reason ?: "Iss video mein MCQs discuss nahi hue."
-                postFailure(GenerationManager.Type.Mcq, documentId, documentTitle, reason)
-                return failure(reason)
-            }
-        }
+        // confirmed the questions exist. Mode B uses the extraction prompt
+        // which has now been updated to GENERATE 10-20 conceptual MCQs
+        // if the transcript is pure theory. So we no longer run the
+        // eligibility check that used to block theory videos.
 
         val modeLabel = if (questionSegments.isNotEmpty())
             "Video ke ${questionSegments.size} questions se MCQs bana raha hoon…"
