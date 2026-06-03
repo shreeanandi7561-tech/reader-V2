@@ -300,7 +300,7 @@ window.MathJax = {
             if (stripFences(raw).trim().length < 100) {
                 raw = oneShot(config, title, transcript, lang, systemPrompt, retryNudge = true)
             }
-            html = stripFences(raw)
+            html = postProcess(raw, title)
         } else {
             // Default-prompt path — full validation + structural
             // wrap + MathJax injection (existing behaviour).
