@@ -17,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -74,18 +75,86 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
 
                 state.apiKeys.forEachIndexed { index, key ->
-                    OutlinedTextField(
-                        value = key,
-                        onValueChange = { vm.updateKey(index, it) },
-                        label = { Text("API Key ${index + 1}") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                    )
+                    val status = state.keyStatuses.getOrNull(index)
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                        OutlinedTextField(
+                            value = key,
+                            onValueChange = { vm.updateKey(index, it) },
+                            label = { Text("API Key ${index + 1}") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (key.isNotBlank() && status != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        "Success: ${status.successCount}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "Failed: ${status.failureCount}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (status.failureCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (status.isCooldown) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                                            contentDescription = "Cooldown",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "Cooldown: ${status.cooldownRemainingSec}s",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        "Active",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = androidx.compose.ui.graphics.Color(0xFF2E7D32)
+                                    )
+                                }
+                            }
+                            if (status.lastError.isNotBlank()) {
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "Error: ${status.lastError}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { vm.resetStats() },
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text("Reset Metrics")
+                    }
+
                     val hasChanges = state.apiKeys != state.originalApiKeys
                     if (hasChanges) {
                         Button(

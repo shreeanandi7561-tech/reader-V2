@@ -19,6 +19,7 @@ import com.reader.app.domain.model.ImageData
 import com.reader.app.domain.model.LlmProvider
 import kotlinx.coroutines.flow.Flow
 import retrofit2.HttpException
+import com.reader.app.di.ServiceLocator
 
 /**
  * Hides provider differences. Caller passes a system + user prompt and gets
@@ -55,7 +56,62 @@ class LlmRepository {
      *   knob (`response_format` for OpenAI-compatible, `responseMimeType`
      *   for Gemini).
      */
+    private fun isQuotaExceededError(throwable: Throwable): Boolean {
+        val msg = (throwable.message ?: "").lowercase()
+        val isQuota = msg.contains("quota") ||
+                msg.contains("rate limit") ||
+                msg.contains("exceeded") ||
+                msg.contains("429") ||
+                msg.contains("exhausted")
+        if (throwable is HttpException) {
+            if (throwable.code() == 429) return true
+        }
+        val cause = throwable.cause
+        if (cause != null && cause != throwable) {
+            return isQuota || isQuotaExceededError(cause)
+        }
+        return isQuota
+    }
+
     suspend fun ask(
+        config: ApiConfig,
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int = 4096,
+        temperature: Double = 0.7,
+        jsonMode: Boolean = false
+    ): Result<String> {
+        var currentConfig = config
+        var lastErr: Throwable? = null
+        val keysCount = maxOf(1, ServiceLocator.configRepository.getKeys().filter { it.isNotBlank() }.size)
+        val maxAttempts = minOf(10, keysCount)
+
+        for (attempt in 1..maxAttempts) {
+            val result = executeAsk(currentConfig, systemPrompt, userPrompt, maxTokens, temperature, jsonMode)
+            if (result.isSuccess) {
+                ServiceLocator.configRepository.recordSuccess(currentConfig.apiKey)
+                return result
+            }
+
+            val exception = result.exceptionOrNull() ?: RuntimeException("Unknown error")
+            lastErr = exception
+
+            val isQuota = isQuotaExceededError(exception)
+            ServiceLocator.configRepository.recordFailure(currentConfig.apiKey, exception.message.orEmpty(), isQuota)
+
+            if (isQuota && attempt < maxAttempts) {
+                val nextConfig = ServiceLocator.configRepository.get(currentConfig.mode)
+                if (nextConfig != null && nextConfig.apiKey != currentConfig.apiKey) {
+                    currentConfig = nextConfig
+                    continue
+                }
+            }
+            break
+        }
+        return Result.failure(lastErr ?: RuntimeException("Request failed across all retries"))
+    }
+
+    private suspend fun executeAsk(
         config: ApiConfig,
         systemPrompt: String,
         userPrompt: String,
@@ -150,6 +206,44 @@ class LlmRepository {
      * text-only Gemini call.
      */
     suspend fun askMultimodal(
+        config: ApiConfig,
+        systemPrompt: String,
+        userPrompt: String,
+        images: List<ImageData>,
+        maxTokens: Int = 4096,
+        temperature: Double = 0.7,
+    ): Result<String> {
+        var currentConfig = config
+        var lastErr: Throwable? = null
+        val keysCount = maxOf(1, ServiceLocator.configRepository.getKeys().filter { it.isNotBlank() }.size)
+        val maxAttempts = minOf(10, keysCount)
+
+        for (attempt in 1..maxAttempts) {
+            val result = executeAskMultimodal(currentConfig, systemPrompt, userPrompt, images, maxTokens, temperature)
+            if (result.isSuccess) {
+                ServiceLocator.configRepository.recordSuccess(currentConfig.apiKey)
+                return result
+            }
+
+            val exception = result.exceptionOrNull() ?: RuntimeException("Unknown error")
+            lastErr = exception
+
+            val isQuota = isQuotaExceededError(exception)
+            ServiceLocator.configRepository.recordFailure(currentConfig.apiKey, exception.message.orEmpty(), isQuota)
+
+            if (isQuota && attempt < maxAttempts) {
+                val nextConfig = ServiceLocator.configRepository.get(currentConfig.mode)
+                if (nextConfig != null && nextConfig.apiKey != currentConfig.apiKey) {
+                    currentConfig = nextConfig
+                    continue
+                }
+            }
+            break
+        }
+        return Result.failure(lastErr ?: RuntimeException("Multimodal request failed across all retries"))
+    }
+
+    private suspend fun executeAskMultimodal(
         config: ApiConfig,
         systemPrompt: String,
         userPrompt: String,
@@ -284,6 +378,61 @@ class LlmRepository {
      * "stuck on Thinking…" state we used to hit.
      */
     fun askStreaming(
+        config: ApiConfig,
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int = 4096,
+        temperature: Double = 0.7,
+        jsonMode: Boolean = false,
+        wallclockMs: Long? = 180_000L,
+    ): Flow<String> {
+        return kotlinx.coroutines.flow.flow {
+            var currentConfig = config
+            val keysCount = maxOf(1, ServiceLocator.configRepository.getKeys().filter { it.isNotBlank() }.size)
+            val maxAttempts = minOf(10, keysCount)
+            var success = false
+            var lastErr: Throwable? = null
+            
+            for (attempt in 1..maxAttempts) {
+                try {
+                    var tokensEmitted = false
+                    executeAskStreaming(
+                        currentConfig, systemPrompt, userPrompt, maxTokens, temperature, jsonMode, wallclockMs
+                    ).collect { token ->
+                        if (token.isNotEmpty()) {
+                            if (!tokensEmitted) {
+                                tokensEmitted = true
+                                ServiceLocator.configRepository.recordSuccess(currentConfig.apiKey)
+                            }
+                            emit(token)
+                        }
+                    }
+                    success = true
+                    break
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastErr = e
+                    val isQuota = isQuotaExceededError(e)
+                    ServiceLocator.configRepository.recordFailure(currentConfig.apiKey, e.message.orEmpty(), isQuota)
+                    
+                    if (isQuota && attempt < maxAttempts) {
+                        val nextConfig = ServiceLocator.configRepository.get(currentConfig.mode)
+                        if (nextConfig != null && nextConfig.apiKey != currentConfig.apiKey) {
+                            currentConfig = nextConfig
+                            continue
+                        }
+                    }
+                    throw e
+                }
+            }
+            if (!success && lastErr != null) {
+                throw lastErr
+            }
+        }
+    }
+
+    private fun executeAskStreaming(
         config: ApiConfig,
         systemPrompt: String,
         userPrompt: String,

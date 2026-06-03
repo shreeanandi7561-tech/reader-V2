@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.reader.app.data.repository.ApiKeyStatus
 import com.reader.app.data.repository.ConfigRepository
 import com.reader.app.data.repository.SpeakerEnrollmentRepository
 import com.reader.app.di.ServiceLocator
@@ -21,6 +22,7 @@ class SettingsViewModel(
     data class UiState(
         val apiKeys: List<String> = List(10) { "" },
         val originalApiKeys: List<String> = List(10) { "" },
+        val keyStatuses: List<ApiKeyStatus> = emptyList(),
         val enrollmentUpdatedAt: Long? = null,
         val savedMessage: String? = null
     )
@@ -35,6 +37,11 @@ class SettingsViewModel(
             
             enrollmentRepo.get()?.let { e ->
                 _state.update { it.copy(enrollmentUpdatedAt = e.updatedAt) }
+            }
+        }
+        viewModelScope.launch {
+            configRepo.statusFlow.collect { statuses ->
+                _state.update { it.copy(keyStatuses = statuses) }
             }
         }
     }
@@ -56,10 +63,15 @@ class SettingsViewModel(
             _state.update { s ->
                 s.copy(
                     originalApiKeys = keys,
-                    savedMessage = "Global API Keys saved"
+                    savedMessage = "Global API Keys saved and status reset"
                 )
             }
         }
+    }
+
+    fun resetStats() {
+        configRepo.resetStats()
+        _state.update { it.copy(savedMessage = "API Key metrics reset completed") }
     }
 
     fun clearEnrollment() {
