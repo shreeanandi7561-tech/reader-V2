@@ -284,19 +284,24 @@ fun NotesScreen(
                     onClick = {
                         val wv = webView ?: return@Button
                         val title = state.cached?.title ?: state.title
-                        // Best-effort MathJax typeset before snapshotting.
-                        // If MathJax is loaded, kick a typeset call (it's
-                        // a no-op when the DOM is already typeset). The
-                        // PDF then captures the typeset DOM rather than
-                        // raw `$…$` source. Offline / no-math docs hit
-                        // the catch and fall straight through to print.
+                        // Explicitly trigger a refresh of typesetting promise and wait for it
                         wv.evaluateJavascript(
-                            "(function(){try{if(window.MathJax&&MathJax.typesetPromise){MathJax.typesetPromise();}return 1;}catch(e){return 0;}})();",
+                            "(function(){try{if(window.MathJax&&MathJax.typesetPromise){window.mathjaxReady=false;MathJax.typesetPromise().then(function(){window.mathjaxReady=true;});return 1;}return 0;}catch(e){window.mathjaxReady=true;return 0;}})();",
                             null
                         )
-                        wv.postDelayed({
-                            NotesPrint.printToPdf(context, wv, title)
-                        }, 350L)
+                        fun checkAndPrint(attempts: Int) {
+                            wv.evaluateJavascript("window.mathjaxReady") { result ->
+                                val isReady = result?.trim() == "true"
+                                if (isReady || attempts <= 0) {
+                                    NotesPrint.printToPdf(context, wv, title)
+                                } else {
+                                    wv.postDelayed({
+                                        checkAndPrint(attempts - 1)
+                                    }, 100L)
+                                }
+                            }
+                        }
+                        checkAndPrint(20)
                     },
                     enabled = state.notesReady && !state.isGenerating,
                 ) {

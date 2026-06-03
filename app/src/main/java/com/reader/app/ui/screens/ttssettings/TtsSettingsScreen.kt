@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -142,7 +147,26 @@ fun TtsSettingsScreen(onBack: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(onClick = vm::testVoice) { Text("Test voice") }
-                    Button(onClick = vm::save) { Text("Save") }
+                    if (state.hasUnsavedChanges) {
+                        Button(onClick = vm::save) { Text("Save") }
+                    } else {
+                        Button(
+                            onClick = {},
+                            enabled = false,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                                contentDescription = "Saved",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Saved")
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(80.dp))     // breathing room above the snackbar

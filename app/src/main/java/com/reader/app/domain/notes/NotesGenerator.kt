@@ -73,6 +73,7 @@ object NotesGenerator {
      * for that reason.
      */
     internal val MATHJAX_HEAD: String = """<script>
+window.mathjaxReady = true;
 window.MathJax = {
   tex: {
     inlineMath:  [['@DOL@','@DOL@'], ['\\(','\\)']],
@@ -83,7 +84,13 @@ window.MathJax = {
   options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] },
   svg: { fontCache: 'global' },
   startup: {
-    ready: function() { MathJax.startup.defaultReady(); }
+    ready: function() {
+      window.mathjaxReady = false;
+      MathJax.startup.defaultReady();
+      MathJax.startup.promise.then(function() {
+        window.mathjaxReady = true;
+      });
+    }
   }
 };
 </script>

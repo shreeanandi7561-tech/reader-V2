@@ -43,7 +43,8 @@ class TtsSettingsViewModel(
         val availableLanguages: List<LanguageOption> = SUPPORTED_LANGUAGES,
         val availableVoices: List<VoiceOption> = emptyList(),
         val savedMessage: String? = null,
-        val isLoading: Boolean = true
+        val isLoading: Boolean = true,
+        val hasUnsavedChanges: Boolean = false
     )
 
     data class LanguageOption(val tag: String, val display: String)
@@ -87,7 +88,8 @@ class TtsSettingsViewModel(
                 pitch       = saved.pitch,
                 speechRate  = saved.speechRate,
                 voiceName   = saved.voiceName,
-                isLoading   = false
+                isLoading   = false,
+                hasUnsavedChanges = false
             )
         }
     }
@@ -97,26 +99,26 @@ class TtsSettingsViewModel(
         // because each voice is locale-bound. Clear it so the user
         // doesn't end up with e.g. a Hindi voice silently still active
         // after they switched to Tamil.
-        _state.update { it.copy(languageTag = tag, voiceName = null) }
+        _state.update { it.copy(languageTag = tag, voiceName = null, hasUnsavedChanges = true) }
         tts.setLanguage(tag)
         tts.setVoice(null)
         persistCurrent()
     }
 
     fun setPitch(value: Float) {
-        _state.update { it.copy(pitch = value) }
+        _state.update { it.copy(pitch = value, hasUnsavedChanges = true) }
         tts.setPitch(value)
         persistCurrent()
     }
 
     fun setSpeechRate(value: Float) {
-        _state.update { it.copy(speechRate = value) }
+        _state.update { it.copy(speechRate = value, hasUnsavedChanges = true) }
         tts.setSpeechRate(value)
         persistCurrent()
     }
 
     fun setVoice(name: String?) {
-        _state.update { it.copy(voiceName = name) }
+        _state.update { it.copy(voiceName = name, hasUnsavedChanges = true) }
         tts.setVoice(name)
         persistCurrent()
     }
@@ -135,7 +137,7 @@ class TtsSettingsViewModel(
     fun save() {
         viewModelScope.launch {
             persistCurrentSync()
-            _state.update { it.copy(savedMessage = "Voice settings saved") }
+            _state.update { it.copy(savedMessage = "Voice settings saved", hasUnsavedChanges = false) }
         }
     }
 

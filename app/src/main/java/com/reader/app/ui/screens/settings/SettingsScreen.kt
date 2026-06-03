@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -82,11 +87,30 @@ fun SettingsScreen(
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     val hasChanges = state.apiKeys != state.originalApiKeys
-                    Button(
-                        onClick = { vm.saveKeys() },
-                        enabled = hasChanges && state.apiKeys.any { it.isNotBlank() }
-                    ) {
-                        Text(if (hasChanges) "Save Keys" else "Saved")
+                    if (hasChanges) {
+                        Button(
+                            onClick = { vm.saveKeys() },
+                            enabled = state.apiKeys.any { it.isNotBlank() }
+                        ) {
+                            Text("Save Keys")
+                        }
+                    } else {
+                        Button(
+                            onClick = {},
+                            enabled = false,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                                contentDescription = "Saved",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Saved")
+                        }
                     }
                 }
 

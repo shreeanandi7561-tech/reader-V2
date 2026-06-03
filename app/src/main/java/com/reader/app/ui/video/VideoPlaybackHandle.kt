@@ -29,7 +29,9 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
  * add ceremony.
  */
 @Stable
-class VideoPlaybackHandle internal constructor() {
+class VideoPlaybackHandle internal constructor(context: android.content.Context? = null) {
+
+    private val prefs = context?.getSharedPreferences("video_playback_prefs", android.content.Context.MODE_PRIVATE)
 
     /** Bound on the player's `onReady`; null until the iframe finishes loading. */
     var player: YouTubePlayer? by mutableStateOf(null)
@@ -70,8 +72,15 @@ class VideoPlaybackHandle internal constructor() {
     var playbackRate: PlayerConstants.PlaybackRate by mutableStateOf(PlayerConstants.PlaybackRate.RATE_1)
         internal set
 
+    private var _preferredQualityState = mutableStateOf(prefs?.getString("preferred_quality", "Auto") ?: "Auto")
+
     /** Preferred video quality string. Managed by quality popup. */
-    var preferredQuality: String by mutableStateOf("Auto")
+    var preferredQuality: String
+        get() = _preferredQualityState.value
+        set(value) {
+            _preferredQualityState.value = value
+            prefs?.edit()?.putString("preferred_quality", value)?.apply()
+        }
 
     /**
      * Latest error reported by the IFrame player, or `null` when the
@@ -143,7 +152,10 @@ class VideoPlaybackHandle internal constructor() {
 }
 
 @Composable
-fun rememberVideoPlaybackHandle(): VideoPlaybackHandle = remember { VideoPlaybackHandle() }
+fun rememberVideoPlaybackHandle(context: android.content.Context = androidx.compose.ui.platform.LocalContext.current): VideoPlaybackHandle {
+    val appContext = context.applicationContext
+    return remember(appContext) { VideoPlaybackHandle(appContext) }
+}
 
 /** Pretty `mm:ss` (or `hh:mm:ss` for >1 hour). Used by the chrome time display. */
 internal fun formatVideoTime(seconds: Double): String {

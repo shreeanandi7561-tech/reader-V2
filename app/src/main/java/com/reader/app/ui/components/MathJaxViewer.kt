@@ -128,6 +128,9 @@ fun MathJaxViewer(
                                     parsedHtml = parsedHtml.replace(mathBlocks[i].placeholder, mathBlocks[i].content);
                                 }
 
+                                // Clean up any lingering unreplaced placeholder strings defensively
+                                parsedHtml = parsedHtml.replace(/MATHPLACEHOLDER[A-Z0-9_]+/g, '');
+
                                 document.getElementById('content').innerHTML = parsedHtml;
 
                                 // Explicitly trigger MathJax typesetting if available
