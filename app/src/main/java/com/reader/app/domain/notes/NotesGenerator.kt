@@ -181,12 +181,12 @@ window.MathJax = {
         You MUST emit math expressions in LaTeX for MathJax.
         - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
         - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
-        - Ensure fraction, percentage, ratio, and formula lines look natural. If plain text rendering of a percentage formula looks ugly, convert it into standard display math inside formula callouts.
+        - Ensure fraction, percentage, ratio, and formula lines look natural. Prefer vertical division/fraction notation `\frac{numerator}{denominator}` or `\frac{a}{b}` rather than `/` or `÷` inside the math blocks wherever applicable, to make it look like human-written textbook questions.
         - Inside `<div class="callout formula">`, put formulas in display math `\\[ ... \\]`.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
           Example: `\(\text{Expenditure } \% = \frac{\text{व्यय}}{\text{कुल आय}} \times 100\)` is BAD if Hindi is inside LaTeX.
-          Instead, use: `Expenditure % = \(\frac{\text{व्यय}}{\text{कुल आय}} \times 100\)` where Hindic text itself is outside or correctly decoupled if inside. Better: keep Hindi text plain HTML and place only math variables/formula delimiters around the math equation.
+          Instead, write the Hindi words in plain HTML/CSS and wrap only numbers, fractions, and variables in the math blocks. Keep Hindi characters completely out of LaTeX delimiters `\\(...\\)` and `\\[...\\]` to prevent blank, broken, or raw text rendering.
         - LATEX SAFETY CHECK: Delimiters must be balanced, special characters escaped appropriately, and no raw `&` or half-parsed equation text should break the parser. Keep formatting simple but elegant.
 
         ╔════════════════════════════════════════════════════════════╗
@@ -566,10 +566,12 @@ window.MathJax = {
 
             3. PERCENTAGE / FRACTION / RATIO FORMATTING
             - Fix malformed percent expressions.
+            - Prefer vertical division/fraction notation `\frac{numerator}{denominator}` or `\frac{a}{b}` rather than horizontal `/` or division signs `÷` inside all LaTeX blocks! Make sure equations look mathematically clean and authentic.
             - Ensure “%” does not get detached, overlap, or appear incorrectly spaced.
             - Ensure fraction and percentage conversion lines are readable.
             - If plain text rendering of a percentage formula looks ugly, convert it into better inline math or display math formatting.
             - Keep exam-note readability as top priority.
+            - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks. Keep Hindi characters completely out of LaTeX delimiters `\\(...\\)` and `\\[...\\]` to prevent blank, broken, or raw text rendering.
 
             4. INLINE VS DISPLAY EQUATION DECISION
             - Detect when a formula should remain inline and when it should become display math.

@@ -151,6 +151,8 @@ object McqGenerator {
 
         If any segment, sentence, or detail looks like advertisement, branding, course-selling, teacher promotion, or app metadata, remove it even if it appears near valid academic content. Only include content belonging directly to the academic chapter/topic/concept studied.
 
+        CRITICAL BAN ON PROMOTIONAL QUESTIONS: Under no circumstances should any question be generated about promotional or personal material. Do NOT create questions asking about batch validation, coupon codes, teacher's identity, courses, app downloads, discounts, contact details, or fees. EVERY generated MCQ item must be 100% academic, testing school/college/exam-level knowledge of the target subject (e.g., Mathematics, Percentage, Physics) based strictly on historical academic facts in the text. No external or promotional info!
+
         ╔════════════════════════════════════════════════════════════╗
         ║  INPUT ANALYSIS LOGIC & GENERATION MODES                   ║
         ╚════════════════════════════════════════════════════════════╝
@@ -219,7 +221,8 @@ object McqGenerator {
         - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
         - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
-        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
+        - Ensure fraction, percentage, ratio, and formula lines look natural. Prefer vertical division/fraction notation `\frac{numerator}{denominator}` or `\frac{a}{b}` rather than horizontal slash `/` or division sign `÷` inside all LaTeX blocks! Make sure equations look mathematically clean and authentic, representing textbook problems.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks. Keep Devanagari or Hindi text completely out of LaTeX delimiters to avoid rendering errors.
           Example: Keep Hindi text plain HTML/string format and wrap ONLY the numeric variables/operators in LaTeX blocks.
         - LATEX SAFETY CHECK: Prioritize simple, stable, safe-render equation formatting over overly complex LaTeX. No raw or stray `&` inside formulas (unless part of a valid environment block), delimiters must be balanced, and mathematical expressions must render correctly. Never show raw backslash commands or corrupted percent expressions.
 
@@ -702,6 +705,8 @@ object McqGenerator {
 
         If any segment, sentence, or detail looks like advertisement, branding, course-selling, teacher promotion, or app metadata, remove it even if it appears near valid academic content. Only include content belonging directly to the academic chapter/topic/concept studied.
 
+        CRITICAL BAN ON PROMOTIONAL QUESTIONS: Under no circumstances should any question be generated about promotional or personal material. Do NOT create questions asking about batch validation, coupon codes, teacher's identity, courses, app downloads, discounts, contact details, or fees. EVERY generated MCQ item must be 100% academic, testing school/college/exam-level knowledge of the target subject (e.g., Mathematics, Percentage, Physics) based strictly on historical academic facts in the text. No external or promotional info!
+
         YOUR JOB:
         - For EACH segment, extract or reconstruct exactly ONE 4-option MCQ representing that segment.
         - Analyze the segment and apply:
@@ -747,7 +752,8 @@ object McqGenerator {
         - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
         - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
         - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
-        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
+        - Ensure fraction, percentage, ratio, and formula lines look natural. Prefer vertical division/fraction notation `\frac{numerator}{denominator}` or `\frac{a}{b}` rather than horizontal slash `/` or division sign `÷` inside all LaTeX blocks! Make sure equations look mathematically clean and authentic, resembling textbook problems.
+        - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks. Keep Devanagari or Hindi text completely out of LaTeX delimiters to avoid rendering errors.
           Example: Keep Hindi text plain HTML/string format and wrap ONLY the numeric variables/operators in LaTeX blocks.
         - LATEX SAFETY CHECK: Prioritize simple, stable, safe-render equation formatting over overly complex LaTeX. No raw or stray `&` inside formulas (unless part of a valid environment block), delimiters must be balanced, and mathematical expressions must render correctly. Never show raw backslash commands or corrupted percent expressions.
 

@@ -7,8 +7,14 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -19,8 +25,13 @@ fun MathJaxViewer(
     textColorHex: String = "#1C1B1F",
     textSizePx: Int = 17
 ) {
+    var webViewHeight by remember { mutableStateOf(80) } // safe initial minimum height in pixels
+    val density = LocalDensity.current
+
     AndroidView(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(with(density) { webViewHeight.toDp() }),
         factory = { context ->
             WebView(context).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -30,7 +41,25 @@ fun MathJaxViewer(
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 setBackgroundColor(Color.TRANSPARENT)
-                webViewClient = WebViewClient()
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        view?.evaluateJavascript(
+                            "javascript:if(window.Android){window.Android.resize(document.documentElement.scrollHeight || document.body.scrollHeight);}",
+                            null
+                        )
+                    }
+                }
+                addJavascriptInterface(object {
+                    @android.webkit.JavascriptInterface
+                    fun resize(height: Int) {
+                        post {
+                            if (height > 0) {
+                                webViewHeight = height
+                            }
+                        }
+                    }
+                }, "Android")
             }
         },
         update = { webView ->
@@ -55,6 +84,7 @@ fun MathJaxViewer(
                                 startup: {
                                     ready: function() {
                                         MathJax.startup.defaultReady();
+                                        setTimeout(reportHeight, 200);
                                     }
                                 }
                             };
@@ -79,6 +109,13 @@ fun MathJaxViewer(
                     <body>
                         <div id="content"></div>
                         <script>
+                            function reportHeight() {
+                                if (window.Android && window.Android.resize) {
+                                    const h = document.documentElement.scrollHeight || document.body.scrollHeight;
+                                    window.Android.resize(h);
+                                }
+                            }
+
                             function b64DecodeUnicode(str) {
                                 return decodeURIComponent(atob(str).split('').map(function(c) {
                                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
@@ -125,17 +162,29 @@ fun MathJaxViewer(
 
                                 // Restore all math equations untouched
                                 for (let i = 0; i < mathBlocks.length; i++) {
-                                    parsedHtml = parsedHtml.replace(mathBlocks[i].placeholder, mathBlocks[i].content);
+                                    parsedHtml = parsedHtml.replace(new RegExp(mathBlocks[i].placeholder, 'gi'), mathBlocks[i].content);
                                 }
 
                                 // Clean up any lingering unreplaced placeholder strings defensively
-                                parsedHtml = parsedHtml.replace(/MATHPLACEHOLDER[A-Z0-9_]+/g, '');
+                                parsedHtml = parsedHtml.replace(/mathplaceholder[a-z0-9_]+/gi, '');
 
                                 document.getElementById('content').innerHTML = parsedHtml;
 
                                 // Explicitly trigger MathJax typesetting if available
                                 if (window.MathJax && MathJax.typesetPromise) {
-                                    MathJax.typesetPromise();
+                                    MathJax.typesetPromise().then(function() {
+                                        setTimeout(reportHeight, 50);
+                                    });
+                                }
+                                reportHeight();
+
+                                // Setup ResizeObserver to catch any size changes dynamically (such as images, MathJax render settle)
+                                if (window.ResizeObserver) {
+                                    const observer = new ResizeObserver(function() {
+                                        reportHeight();
+                                    });
+                                    observer.observe(document.documentElement);
+                                    observer.observe(document.body);
                                 }
                             } catch(e) {
                                 document.getElementById('content').innerHTML = "Error parsing content: " + e.message;

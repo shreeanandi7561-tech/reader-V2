@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -523,11 +525,29 @@ private fun PrefsStrip(state: NotesViewModel.UiState, vm: NotesViewModel) {
                     Text("Reset")
                 }
                 Spacer(Modifier.weight(1f))
-                Button(
-                    onClick = { vm.setCustomPrompt(promptDraft) },
-                    enabled = promptDraft != state.customPrompt,
-                ) {
-                    Text("Save")
+                if (promptDraft != state.customPrompt) {
+                    Button(
+                        onClick = { vm.setCustomPrompt(promptDraft) },
+                    ) {
+                        Text("Save")
+                    }
+                } else {
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                            contentDescription = "Saved",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Saved")
+                    }
                 }
             }
             Spacer(Modifier.height(4.dp))
