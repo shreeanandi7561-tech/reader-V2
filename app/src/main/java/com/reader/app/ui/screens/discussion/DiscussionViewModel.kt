@@ -241,6 +241,7 @@ class DiscussionViewModel(
     private var videoFrameSource: VideoFrameSource = VideoFrameSource.NoOp
     private var lastMultimodalPausedAtSec: Double? = null
     private var lastMultimodalImages: List<com.reader.app.domain.model.ImageData>? = null
+    private var lastMultimodalTimestamps: List<Double>? = null
 
     init {
         viewModelScope.launch {
@@ -718,131 +719,199 @@ class DiscussionViewModel(
         }
         if (cues.isEmpty()) return null
 
-        // ---- Step 1: Question-aware retrieval -----------------------------
-        //
-        // Ask the LLM to scan the WHOLE transcript and identify all
-        // the places where the ANSWER for this question is actually
-        // discussed. Could be at the pause moment, could be far
-        // earlier (the concept being asked about), could be split
-        // across multiple parts of the video.
-        //
-        // Cancellation propagates; any other failure (locator
-        // unavailable, malformed JSON, empty result) → empty list,
-        // and we fall through to the existing pause-anchored
-        // window detector below. The student still gets an answer
-        // either way.
-        val locatedSegments: List<AnswerLocator.Segment> = try {
-            AnswerLocator.locate(
-                llm         = llm,
-                config      = cfg,
-                cues        = cues,
-                pausedAtSec = pausedAtSec,
-                question    = question,
-                history     = history,
-            )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Throwable) {
-            emptyList()
-        }
+        var locateResult: AnswerLocator.LocateResult? = null
 
-        // ---- Step 2: Resolve the segments to actually use -----------------
-        //
-        // Either the retrieved segments (preferred — semantic match)
-        // or a fallback single-window from the legacy
-        // QuestionWindowDetector anchored on the pause. The fallback
-        // path matches the previous behaviour 1:1 when the locator
-        // is unavailable.
-        val segments: List<UsableSegment> = if (locatedSegments.isNotEmpty()) {
-            locatedSegments.map { seg ->
-                UsableSegment(
-                    startSec = seg.startSec,
-                    endSec   = seg.endSec,
-                    reason   = seg.reason,
-                    anchor   = pickAnchor(pausedAtSec, seg.startSec, seg.endSec),
-                )
-            }
+        val finalTimestamps: List<Double> = if (useCachedFrames && lastMultimodalTimestamps != null) {
+            lastMultimodalTimestamps!!
         } else {
-            val window = QuestionWindowDetector.detect(cues, pausedAtSec = pausedAtSec)
-            if (window.endSec <= window.startSec) return null
-            listOf(
-                UsableSegment(
+            // ---- Step 1: Question-aware retrieval -----------------------------
+            //
+            // Ask the LLM to scan the WHOLE transcript and identify all
+            // the places where the ANSWER for this question is actually
+            // discussed.
+            locateResult = try {
+                AnswerLocator.locate(
+                    llm         = llm,
+                    config      = cfg,
+                    cues        = cues,
+                    pausedAtSec = pausedAtSec,
+                    question    = question,
+                    history     = history,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                AnswerLocator.LocateResult(isPauseCentered = false, segments = emptyList())
+            }
+
+            val isPauseCentered = locateResult.isPauseCentered
+            val segments = locateResult.segments
+
+            val timestamps: List<Double> = if (isPauseCentered) {
+                // Rule 1.9: SPECIAL PAUSE-CENTERED RULE
+                // One screenshot from the exact paused timestamp is mandatory.
+                // Then capture 2 screenshots from after that timestamp.
+                // Then capture 2 screenshots from before that timestamp.
+                // Total must still be exactly 5 screenshots.
+                FrameTimestampSampler.sampleAroundPause(
+                    cues = cues,
+                    pausedAtSec = pausedAtSec,
+                    docTotalSec = cues.lastOrNull()?.endSec ?: 0.0
+                )
+            } else if (segments.isEmpty()) {
+                // Heuristic fallback if AnswerLocator was empty/failed
+                val window = QuestionWindowDetector.detect(cues, pausedAtSec = pausedAtSec)
+                FrameTimestampSampler.sample(
+                    cues = cues,
                     startSec = window.startSec,
-                    endSec   = window.endSec,
-                    reason   = "around the paused moment",
-                    anchor   = pausedAtSec,
+                    endSec = window.endSec,
+                    anchorSec = pausedAtSec,
+                    maxFrames = 5
                 )
-            )
-        }
+            } else {
+                // Rule 1.4, 1.5, 1.7, 1.8, 1.10
+                val totalSegments = segments.size
+                val candidates = mutableListOf<Double>()
 
-        // ---- Step 3: Sample timestamps across all segments ----------------
-        //
-        // As per new requirements:
-        // Situation A: If the student asks a question related to the paused timestamp
-        // (i.e. pausedAtSec is within the located segments), we MUST capture exactly
-        // AT the paused timestamp, plus 2 frames before it and 2 frames after it.
-        //
-        // Situation B: If not related to the paused timestamp (or fallback), we capture
-        // the final moment (endSec) of top segments and backfill intermediate "last moments"
-        // to strictly reach 5 frames.
-        
-        // "Aaspaas" - consider it related if the paused moment is within or very close (5s) to the segment.
-        val isRelatedToPause = segments.any { pausedAtSec in (it.startSec - 5.0)..(it.endSec + 5.0) }
+                if (totalSegments == 1) {
+                    // Rule 1.7: SINGLE BLOCK STILL MEANS FIVE CAPTURES
+                    val seg = segments[0]
+                    candidates.add(seg.completedSec)
+                    for (m in seg.subMoments) {
+                        if (!candidates.contains(m)) {
+                            candidates.add(m)
+                        }
+                    }
+                    if (candidates.size < 5) {
+                        val sampled = FrameTimestampSampler.sample(
+                            cues = cues,
+                            startSec = seg.startSec,
+                            endSec = seg.endSec,
+                            anchorSec = seg.completedSec,
+                            maxFrames = 10
+                        )
+                        for (ts in sampled) {
+                            if (!candidates.contains(ts)) {
+                                candidates.add(ts)
+                            }
+                        }
+                    }
+                } else if (totalSegments == 2) {
+                    // Rule 1.8: TWO OR FEW BLOCKS STILL MEANS FIVE CAPTURES
+                    val seg1 = segments[0]
+                    val seg2 = segments[1]
 
-        val timestamps: List<Double> = if (isRelatedToPause) {
-            FrameTimestampSampler.sampleAroundPause(
-                cues = cues,
-                pausedAtSec = pausedAtSec,
-                docTotalSec = cues.lastOrNull()?.endSec ?: 0.0
-            )
-        } else {
-            val sortedSegments = segments.sortedByDescending { seg ->
-                if (pausedAtSec in seg.startSec..seg.endSec) 1 else 0 // Won't happen now, but safe
-            }
-            val topSegments = sortedSegments.take(MAX_TOTAL_FRAMES)
-            
-            val collectedTimestamps = mutableSetOf<Double>()
-            
-            // Mandatory: add the absolute end of every selected segment.
-            for (seg in topSegments) {
-                collectedTimestamps.add(seg.endSec)
-            }
-    
-            // Backfill if we need more to reach 5
-            val remaining = MAX_TOTAL_FRAMES - collectedTimestamps.size
-            if (remaining > 0 && topSegments.isNotEmpty()) {
-                val perSegmentAlloc = (remaining / topSegments.size).coerceAtLeast(1)
-                for (seg in topSegments) {
-                    if (collectedTimestamps.size >= MAX_TOTAL_FRAMES) break
-                    val sampled = FrameTimestampSampler.sample(
-                        cues       = cues,
-                        startSec   = seg.startSec,
-                        endSec     = seg.endSec,
-                        anchorSec  = seg.anchor,
-                        maxFrames  = perSegmentAlloc + 2
-                    )
-                    for (ts in sampled.reversed()) {
-                        if (collectedTimestamps.size >= MAX_TOTAL_FRAMES) break
-                        collectedTimestamps.add(ts)
+                    candidates.add(seg1.completedSec)
+                    candidates.add(seg2.completedSec)
+
+                    val sub1 = seg1.subMoments
+                    val sub2 = seg2.subMoments
+
+                    var i = 0
+                    while (candidates.size < 5 && (i < sub1.size || i < sub2.size)) {
+                        if (i < sub1.size) {
+                            val ts = sub1[i]
+                            if (!candidates.contains(ts)) candidates.add(ts)
+                        }
+                        if (candidates.size >= 5) break
+                        if (i < sub2.size) {
+                            val ts = sub2[i]
+                            if (!candidates.contains(ts)) candidates.add(ts)
+                        }
+                        i++
+                    }
+
+                    if (candidates.size < 5) {
+                        val sampled1 = FrameTimestampSampler.sample(cues, seg1.startSec, seg1.endSec, seg1.completedSec, 5)
+                        val sampled2 = FrameTimestampSampler.sample(cues, seg2.startSec, seg2.endSec, seg2.completedSec, 5)
+                        var j = 0
+                        while (candidates.size < 5 && (j < sampled1.size || j < sampled2.size)) {
+                            if (j < sampled1.size) {
+                                val ts = sampled1[j]
+                                if (!candidates.contains(ts)) candidates.add(ts)
+                            }
+                            if (candidates.size >= 5) break
+                            if (j < sampled2.size) {
+                                val ts = sampled2[j]
+                                if (!candidates.contains(ts)) candidates.add(ts)
+                            }
+                            j++
+                        }
+                    }
+                } else if (totalSegments in 3..4) {
+                    for (seg in segments) {
+                        candidates.add(seg.completedSec)
+                    }
+                    for (seg in segments) {
+                        if (candidates.size >= 5) break
+                        for (m in seg.subMoments) {
+                            if (candidates.size >= 5) break
+                            if (!candidates.contains(m)) {
+                                candidates.add(m)
+                            }
+                        }
+                    }
+                    if (candidates.size < 5) {
+                        val sortedByDuration = segments.sortedByDescending { it.durationSec }
+                        for (seg in sortedByDuration) {
+                            if (candidates.size >= 5) break
+                            val sampled = FrameTimestampSampler.sample(cues, seg.startSec, seg.endSec, seg.completedSec, 5)
+                            for (ts in sampled) {
+                                if (candidates.size >= 5) break
+                                if (!candidates.contains(ts)) {
+                                    candidates.add(ts)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // More than 5 segments
+                    val topSegments = segments.take(5)
+                    for (seg in topSegments) {
+                        candidates.add(seg.completedSec)
                     }
                 }
-            }
-    
-            collectedTimestamps.toList().sorted()
-        }
 
-        // No deduplication — the student strictly requested exactly 5 frames (e.g. 2 before, 
-        // 1 at pause, 2 after) and deduplication might drop some frames resulting in only 3 or 4.
-        val finalTimestamps = timestamps.sorted()
+                // If not enough, backfill using sampleAroundPause elements
+                if (candidates.size < 5) {
+                    val backfill = FrameTimestampSampler.sampleAroundPause(cues, pausedAtSec, cues.lastOrNull()?.endSec ?: 0.0)
+                    for (ts in backfill) {
+                        if (candidates.size >= 5) break
+                        if (!candidates.contains(ts)) {
+                            candidates.add(ts)
+                        }
+                    }
+                }
+
+                candidates
+            }
+
+            // Deduplicate and separate to avoid near-duplicate snapshots (minimum 1.0 second gap)
+            val distinctPicks = separateTimestamps(timestamps, minGapSec = 1.0)
+            var finalOut = distinctPicks.take(5).toMutableList()
+            while (finalOut.size < 5) {
+                val basePause = pausedAtSec
+                val totalLength = cues.lastOrNull()?.endSec ?: 0.0
+                var multiplier = 1.0
+                val tsRight = (basePause + (multiplier * 2.5)).coerceIn(0.0, totalLength)
+                if (!finalOut.contains(tsRight)) {
+                    finalOut.add(tsRight)
+                } else {
+                    val tsLeft = (basePause - (multiplier * 2.5)).coerceIn(0.0, totalLength)
+                    if (!finalOut.contains(tsLeft)) {
+                        finalOut.add(tsLeft)
+                    }
+                }
+                multiplier += 1.0
+                if (multiplier > 50.0) break
+            }
+
+            finalOut.sorted()
+        }
 
         if (finalTimestamps.isEmpty()) return null
 
         // ---- Step 4: Capture frames via the composite source --------------
-        //
-        // WebViewFrameSource handles the seek + settle + draw +
-        // recycle pipeline; StoryboardFrameSource fills in
-        // mostly-black frames per-cell. Cancellation propagates;
-        // anything else degrades to text-only.
         val images = if (useCachedFrames && lastMultimodalImages != null) {
             lastMultimodalImages!!
         } else {
@@ -850,6 +919,7 @@ class DiscussionViewModel(
                 val captured = source.captureFrames(finalTimestamps)
                 if (captured.isNotEmpty()) {
                     lastMultimodalImages = captured
+                    lastMultimodalTimestamps = finalTimestamps
                 }
                 captured
             } catch (e: CancellationException) {
@@ -861,17 +931,9 @@ class DiscussionViewModel(
         if (images.isEmpty()) return null
 
         // ---- Step 5: Build the multimodal prompt --------------------------
-        //
-        // Two routes — when we have retrieved segments, use the
-        // multi-segment prompt builder so the AI sees explicit labels
-        // for each disjoint range. When we fell back to the single-
-        // window detector, use the simpler video-frames builder so
-        // the existing single-window prompt shape remains the path
-        // of record (and any prompt-engineering work the team
-        // already did stays in effect).
         val frameTs = images.mapNotNull { it.captionTimestampSec }
-        val (system, user) = if (locatedSegments.isNotEmpty()) {
-            val segmentsForPrompt = segments.map { seg ->
+        val (system, user) = if (!useCachedFrames && locateResult != null && locateResult.segments.isNotEmpty()) {
+            val segmentsForPrompt = locateResult.segments.map { seg ->
                 PromptBuilder.AnswerSegment(
                     startSec = seg.startSec,
                     endSec   = seg.endSec,
@@ -892,11 +954,11 @@ class DiscussionViewModel(
                 frameTimestampsSec  = frameTs,
             )
         } else {
-            // Single-window fallback path (unchanged from before).
-            val seg = segments.first()
+            // Single-window fallback / Cached path
+            val window = QuestionWindowDetector.detect(cues, pausedAtSec = pausedAtSec)
             val windowText = cues
                 .asSequence()
-                .filter { it.startSec >= seg.startSec && it.startSec < seg.endSec }
+                .filter { it.startSec >= window.startSec && it.startSec < window.endSec }
                 .joinToString(separator = " ") { it.text }
             PromptBuilder.buildDiscussionWithVideoFrames(
                 fullDocument        = docText,
@@ -906,8 +968,8 @@ class DiscussionViewModel(
                 transcriptWindow    = windowText,
                 pausedAtSec         = pausedAtSec,
                 frameTimestampsSec  = frameTs,
-                windowStartSec      = seg.startSec,
-                windowEndSec        = seg.endSec,
+                windowStartSec      = window.startSec,
+                windowEndSec        = window.endSec,
             )
         }
 
@@ -921,6 +983,17 @@ class DiscussionViewModel(
         val text = result.getOrNull()?.trim().orEmpty()
         if (text.isBlank()) return null
         return MultimodalAnswer(text = text, frameTimestampsSec = frameTs)
+    }
+
+    private fun separateTimestamps(timestamps: List<Double>, minGapSec: Double = 1.0): List<Double> {
+        val sorted = timestamps.sorted()
+        val result = mutableListOf<Double>()
+        for (ts in sorted) {
+            if (result.isEmpty() || ts - result.last() >= minGapSec) {
+                result.add(ts)
+            }
+        }
+        return result
     }
 
     /**

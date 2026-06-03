@@ -56,11 +56,17 @@ object AnswerLocator {
     data class Segment(
         val startSec: Double,
         val endSec: Double,
-        /** One-line "why this segment matters" hint from the LLM. */
-        val reason: String = ""
+        val completedSec: Double,
+        val reason: String = "",
+        val subMoments: List<Double> = emptyList()
     ) {
         val durationSec: Double get() = (endSec - startSec).coerceAtLeast(0.0)
     }
+
+    data class LocateResult(
+        val isPauseCentered: Boolean,
+        val segments: List<Segment>
+    )
 
     /**
      * Up to 5 disjoint, sorted, sanitised segments of the transcript
@@ -75,8 +81,8 @@ object AnswerLocator {
         pausedAtSec: Double,
         question: String,
         history: List<PromptBuilder.Turn> = emptyList(),
-    ): List<Segment> {
-        if (cues.isEmpty() || question.isBlank()) return emptyList()
+    ): LocateResult {
+        if (cues.isEmpty() || question.isBlank()) return LocateResult(isPauseCentered = false, segments = emptyList())
 
         val systemPrompt = SYSTEM_PROMPT
         val userPrompt = buildUserPrompt(
@@ -87,54 +93,52 @@ object AnswerLocator {
         )
 
         val raw = llm.ask(config, systemPrompt, userPrompt).getOrNull().orEmpty()
-        if (raw.isBlank()) return emptyList()
+        if (raw.isBlank()) return LocateResult(isPauseCentered = false, segments = emptyList())
 
-        val parsed = parseSegments(raw)
-        if (parsed.isEmpty()) return emptyList()
-
-        return sanitise(parsed, cues)
+        val parsedResult = parseSegments(raw)
+        val sanitisedSegments = sanitise(parsedResult.segments, cues)
+        return LocateResult(
+            isPauseCentered = parsedResult.isPauseCentered,
+            segments = sanitisedSegments
+        )
     }
 
     /* ------------------------- Prompt ------------------------- */
 
     private val SYSTEM_PROMPT = """
-        You are a video-transcript retrieval engine. The student is
+        You are a video-transcript retrieval and question reasoning engine. The student is
         watching a Hindi / Hinglish tutorial video and paused at a
         specific moment to ask a question. You are given the FULL
         transcript with per-cue timestamps.
 
-        Your single job: identify EVERY range of the transcript where
-        the ANSWER to that question is actually discussed by the
-        teacher — concept introduction, derivation, worked example,
-        recap, or the explicit step the student is asking about.
-        Multiple ranges in different parts of the video are not just
-        allowed, they are encouraged when the answer is split across
-        the video.
+        Your tasks:
+        1. ANALYZE the question to determine the required topic, concept, or previous question.
+        2. Inspect paused video timestamp and context, and inspect the complete transcript.
+        3. Identify whether the student's question/doubt is directly related to the currently paused timestamp or its immediate surrounding context (plus/minus 15 seconds of the pause). In this case, set `isPauseCentered` to true. Otherwise, set it to false.
+        4. Identify EVERY contiguous range of the transcript where the ANSWER to that question is actually discussed.
+        5. For each range, determine:
+           - startSec and endSec.
+           - `completedSec`: the EXACT timestamp inside this range where the explanation is completed, and the written board/screen is most visually rich and finished (completed visual solution state). This must represent the end of the explanation sub-point, not the beginning where the teacher has not yet completed writing or showing.
+           - `subMoments`: a list of up to 5 distinct intermediate completed sub-solution timestamps inside the range, sorted ascending, representing helpful visual milestones or steps of the solution.
 
         RULES (NON-NEGOTIABLE):
         1. Return UP TO 5 segments. Fewer is fine when fewer apply.
-        2. Each segment is one CONTIGUOUS [startSec, endSec] range
-           expressed in seconds (Doubles allowed).
-        3. Each segment must be AT LEAST 10 s long and AT MOST 90 s
-           long. Trim aggressively: if only 20 s of a 60 s span are
-           actually about the answer, return those 20 s.
-        4. Sort segments ascending by startSec. Segments must NOT
-           overlap. If two adjacent topical mentions are within ~15 s,
-           merge them into one segment instead of returning two.
-        5. The student's pause moment is a STRONG hint when the
-           question is referential ("yeh", "abhi", "is step"). For
-           topical questions ("matrix kya hota hai", "graph waala
-           part") the answer may be far from the pause — return
-           wherever it actually is.
-        6. If you genuinely cannot find any relevant range in the
-           transcript, return `{"segments":[]}`. Do NOT invent.
-        7. Output: ONE JSON object, NO markdown fences, NO commentary,
-           NO preamble:
-           {"segments":[{"startSec":N,"endSec":N,"reason":"short why"}]}
-           `reason` must be ≤ 12 words and explain why the segment is
-           relevant (e.g. "teacher derives integration-by-parts
-           formula", "worked example using same method").
-        8. Times are in seconds, NOT milliseconds, NOT mm:ss strings.
+        2. Each segment must be AT LEAST 10 s long and AT MOST 90 s long.
+        3. Sort segments ascending by startSec. Segments must NOT overlap.
+        4. If you cannot find any relevant range, return `{"isPauseCentered":false,"segments":[]}`.
+        5. Output format must be ONE JSON object, NO markdown fences, NO commentary, NO preamble:
+           {
+             "isPauseCentered": true,
+             "segments": [
+               {
+                 "startSec": N,
+                 "endSec": N,
+                 "completedSec": N,
+                 "reason": "short why",
+                 "subMoments": [N, N, ...]
+               }
+             ]
+           }
     """.trimIndent()
 
     /**
@@ -187,6 +191,7 @@ object AnswerLocator {
 
     @JsonClass(generateAdapter = true)
     internal data class LocateResponseDto(
+        val isPauseCentered: Boolean? = false,
         val segments: List<SegmentDto>? = null,
     )
 
@@ -194,41 +199,43 @@ object AnswerLocator {
     internal data class SegmentDto(
         val startSec: Double? = null,
         val endSec: Double? = null,
+        val completedSec: Double? = null,
         val reason: String? = null,
+        val subMoments: List<Double>? = null,
     )
 
     private val locateAdapter by lazy {
         LlmClientFactory.moshiInstance().adapter(LocateResponseDto::class.java)
     }
 
+    data class ParsedLocateResponse(
+        val isPauseCentered: Boolean,
+        val segments: List<Segment>
+    )
+
     /**
      * Robustly extract segments from the model's raw output.
-     *
-     * The system prompt asks for raw JSON, but real models occasionally
-     * wrap it in markdown fences, prepend explanations, or trail a
-     * sentence after. We:
-     *   1. Trim markdown fences if present.
-     *   2. Find the first balanced `{...}` block and try to parse it.
-     *   3. On any failure, return empty list — caller treats that as
-     *      "locator unavailable" and falls back to the heuristic
-     *      window detector.
      */
-    private fun parseSegments(raw: String): List<Segment> {
+    private fun parseSegments(raw: String): ParsedLocateResponse {
         val cleaned = stripMarkdownFences(raw.trim())
-        val jsonBlock = extractFirstJsonObject(cleaned) ?: return emptyList()
+        val jsonBlock = extractFirstJsonObject(cleaned) ?: return ParsedLocateResponse(false, emptyList())
         val parsed = runCatching { locateAdapter.fromJson(jsonBlock) }.getOrNull()
-            ?: return emptyList()
-        val raws = parsed.segments ?: return emptyList()
-        return raws.mapNotNull { dto ->
+            ?: return ParsedLocateResponse(false, emptyList())
+        val raws = parsed.segments ?: return ParsedLocateResponse(parsed.isPauseCentered ?: false, emptyList())
+        val segments = raws.mapNotNull { dto ->
             val s = dto.startSec ?: return@mapNotNull null
             val e = dto.endSec ?: return@mapNotNull null
             if (e <= s) return@mapNotNull null
+            val comp = dto.completedSec ?: e
             Segment(
                 startSec = s,
                 endSec   = e,
-                reason   = dto.reason?.trim().orEmpty()
+                completedSec = comp,
+                reason   = dto.reason?.trim().orEmpty(),
+                subMoments = dto.subMoments ?: emptyList()
             )
         }
+        return ParsedLocateResponse(parsed.isPauseCentered ?: false, segments)
     }
 
     /**
@@ -313,11 +320,18 @@ object AnswerLocator {
             val s = seg.startSec.coerceIn(0.0, maxEnd)
             val e = seg.endSec.coerceIn(0.0, maxEnd)
             val dur = e - s
-            when {
-                dur < MIN_SEGMENT_SEC -> null
-                dur > MAX_SEGMENT_SEC -> seg.copy(startSec = s, endSec = s + MAX_SEGMENT_SEC)
-                else -> seg.copy(startSec = s, endSec = e)
-            }
+            if (dur < MIN_SEGMENT_SEC) return@mapNotNull null
+            
+            val finalEnd = if (dur > MAX_SEGMENT_SEC) s + MAX_SEGMENT_SEC else e
+            val comp = seg.completedSec.coerceIn(s, finalEnd)
+            val subs = seg.subMoments.map { it.coerceIn(s, finalEnd) }.distinct().sorted()
+            
+            seg.copy(
+                startSec = s,
+                endSec = finalEnd,
+                completedSec = comp,
+                subMoments = subs
+            )
         }
         if (clamped.isEmpty()) return emptyList()
 
@@ -332,9 +346,16 @@ object AnswerLocator {
                 val combinedReason = listOf(last.reason, seg.reason)
                     .filter { it.isNotBlank() }
                     .joinToString(separator = " + ")
+                val combinedSubs = (last.subMoments + seg.subMoments)
+                    .map { it.coerceIn(last.startSec, cappedEnd) }
+                    .distinct()
+                    .sorted()
+                val mergedComp = if (seg.completedSec in last.startSec..cappedEnd) seg.completedSec else last.completedSec
                 merged[merged.size - 1] = last.copy(
                     endSec = cappedEnd,
-                    reason = combinedReason
+                    completedSec = mergedComp,
+                    reason = combinedReason,
+                    subMoments = combinedSubs
                 )
             } else {
                 merged += seg
