@@ -277,9 +277,16 @@ fun NotesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                OutlinedButton(
+                    onClick = vm::polish,
+                    enabled = state.notesReady && !state.isGenerating,
+                ) {
+                    Text("Polish Notes Formatting")
+                }
+
                 Button(
                     onClick = {
                         val wv = webView ?: return@Button

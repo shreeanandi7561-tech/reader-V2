@@ -158,10 +158,13 @@ class NotesViewModel(
          * screen doesn't need to know about [GenerationManager].
          */
         val genStatus: GenerationManager.Status = GenerationManager.Status.Idle,
+        val polishStatus: GenerationManager.Status = GenerationManager.Status.Idle,
     ) {
-        val isGenerating: Boolean get() = genStatus is GenerationManager.Status.Running
-        val genProgressLabel: String? get() = (genStatus as? GenerationManager.Status.Running)?.message
+        val isGenerating: Boolean get() = genStatus is GenerationManager.Status.Running || polishStatus is GenerationManager.Status.Running
+        val genProgressLabel: String? get() = (genStatus as? GenerationManager.Status.Running)?.message 
+            ?: (polishStatus as? GenerationManager.Status.Running)?.message
         val genErrorMessage: String? get() = (genStatus as? GenerationManager.Status.Failed)?.message
+            ?: (polishStatus as? GenerationManager.Status.Failed)?.message
 
         /**
          * True iff the cached row contains real HTML the WebView can
@@ -175,6 +178,7 @@ class NotesViewModel(
     }
 
     private val key = GenerationManager.Key(GenerationManager.Type.Notes, documentId)
+    private val polishKey = GenerationManager.Key(GenerationManager.Type.PolishNotes, documentId)
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -238,11 +242,20 @@ class NotesViewModel(
                 _state.update { it.copy(genStatus = status) }
             }
         }
+
+        viewModelScope.launch {
+            GenerationManager.statusFor(getApplication(), polishKey).collect { status ->
+                _state.update { it.copy(polishStatus = status) }
+            }
+        }
     }
 
     fun consumeError() {
         if (_state.value.genStatus is GenerationManager.Status.Failed) {
             GenerationManager.consume(getApplication(), key)
+        }
+        if (_state.value.polishStatus is GenerationManager.Status.Failed) {
+            GenerationManager.consume(getApplication(), polishKey)
         }
     }
 
@@ -253,6 +266,18 @@ class NotesViewModel(
     fun generate() {
         val app = getApplication<Application>()
         GenerationManager.startNotes(
+            application = app,
+            documentId = documentId,
+            documentTitle = _state.value.title.ifBlank { "Notes" },
+        )
+    }
+
+    /**
+     * Kick off notes visual/typographical polishing.
+     */
+    fun polish() {
+        val app = getApplication<Application>()
+        GenerationManager.startPolishNotes(
             application = app,
             documentId = documentId,
             documentTitle = _state.value.title.ifBlank { "Notes" },

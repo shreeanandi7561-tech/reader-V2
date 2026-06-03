@@ -27,6 +27,7 @@ import com.reader.app.data.local.migrations.MIGRATION_4_5
 import com.reader.app.data.local.migrations.MIGRATION_5_6
 import com.reader.app.data.local.migrations.MIGRATION_6_7
 import com.reader.app.data.local.migrations.MIGRATION_7_8
+import com.reader.app.data.local.migrations.MIGRATION_8_9
 
 /**
  * Schema:
@@ -70,7 +71,7 @@ import com.reader.app.data.local.migrations.MIGRATION_7_8
         McqAttemptEntity::class,
         GeneratedNoteEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -100,7 +101,7 @@ abstract class ReaderDatabase : RoomDatabase() {
                     // running an MCQ generation is genuinely painful, so we
                     // always ship a real Migration object alongside the
                     // entity changes.
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

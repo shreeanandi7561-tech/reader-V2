@@ -53,4 +53,11 @@ data class McqQuestionEntity(
     /** "transcript" | "ai_filled" — for UI decoration on the result screen. */
     val source: String = "transcript",
     val originalSnippet: String? = null,
+    
+    // Advanced Exam-reconstruction fields:
+    val sourceType: String = "extracted",
+    val confidenceLevel: String = "high",
+    val shortSolution: String = "",
+    val conceptTested: String = "",
+    val difficulty: String = "Standard Competitive",
 )

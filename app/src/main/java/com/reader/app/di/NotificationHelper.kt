@@ -52,8 +52,9 @@ object NotificationHelper {
      */
     fun notificationId(type: GenerationManager.Type, documentId: Long): Int {
         val typeOffset = when (type) {
-            GenerationManager.Type.Mcq   -> 1_000_000
-            GenerationManager.Type.Notes -> 2_000_000
+            GenerationManager.Type.Mcq         -> 1_000_000
+            GenerationManager.Type.Notes       -> 2_000_000
+            GenerationManager.Type.PolishNotes  -> 3_000_000
         }
         return typeOffset + (documentId.toInt() and 0x7FFFFF)
     }

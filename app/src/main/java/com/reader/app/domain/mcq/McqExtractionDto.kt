@@ -38,6 +38,11 @@ data class McqExtractedQuestionDto(
     val source: String? = null,
     val confidence: Double? = null,
     val originalSnippet: String? = null,
+    val sourceType: String? = null,
+    val confidenceLevel: String? = null,
+    val shortSolution: String? = null,
+    val conceptTested: String? = null,
+    val difficulty: String? = null,
 )
 
 /**

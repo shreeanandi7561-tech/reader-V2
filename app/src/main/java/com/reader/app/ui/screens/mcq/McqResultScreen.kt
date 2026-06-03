@@ -97,6 +97,11 @@ private fun ResultContent(
                     confidence        = q.confidence,
                     source            = q.source,
                     originalSnippet   = q.originalSnippet,
+                    sourceType        = q.sourceType,
+                    confidenceLevel   = q.confidenceLevel,
+                    shortSolution     = q.shortSolution,
+                    conceptTested     = q.conceptTested,
+                    difficulty        = q.difficulty,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             }
@@ -170,16 +175,81 @@ private fun QuestionResultRow(
     confidence: Double,
     source: String,
     originalSnippet: String?,
+    sourceType: String?,
+    confidenceLevel: String?,
+    shortSolution: String?,
+    conceptTested: String?,
+    difficulty: String?,
 ) {
     Column(modifier = Modifier
         .fillMaxWidth()
         .padding(vertical = 12.dp)
     ) {
-        Text(
-            "Q${index + 1}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Q${index + 1}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            difficulty?.let { diff ->
+                if (diff.isNotBlank()) {
+                    val badgeColor = when (diff.lowercase()) {
+                        "advanced" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                        "moderate" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+                        else -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(badgeColor.first)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            diff,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = badgeColor.second
+                        )
+                    }
+                }
+            }
+        }
+        
+        conceptTested?.let { concept ->
+            if (concept.isNotBlank()) {
+                Text(
+                    "Concept: $concept",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+        }
+
+        sourceType?.let { srcType ->
+            if (srcType.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        "Mode: $srcType".uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(4.dp))
         MathJaxViewer(
             markdown = question,
@@ -217,12 +287,38 @@ private fun QuestionResultRow(
             Spacer(Modifier.height(6.dp))
         }
 
+        shortSolution?.let { sol ->
+            if (sol.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        "SHORT SOLUTION",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    MathJaxViewer(
+                        markdown = sol,
+                        textColorHex = String.format("#%06X", (0xFFFFFF and MaterialTheme.colorScheme.onSurface.toArgb()))
+                    )
+                }
+            }
+        }
+
         if (confidence < 0.85 || source == "ai_filled") {
             Spacer(Modifier.height(4.dp))
+            val confidenceStr = confidenceLevel ?: ("%.0f%%".format(confidence * 100))
             Text(
                 buildString {
                     if (source == "ai_filled") append("Some options were AI-filled. ")
-                    if (confidence < 0.85)     append("Confidence ${"%.0f".format(confidence * 100)}% — verify against transcript.")
+                    append("Confidence Level: ${confidenceStr.uppercase()} — verify against source.")
                 }.trim(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

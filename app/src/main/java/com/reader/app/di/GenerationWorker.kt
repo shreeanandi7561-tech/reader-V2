@@ -77,6 +77,7 @@ class GenerationWorker(
             when (type) {
                 GenerationManager.Type.Mcq -> doMcq(documentId, documentTitle)
                 GenerationManager.Type.Notes -> doNotes(documentId, documentTitle)
+                GenerationManager.Type.PolishNotes -> doPolishNotes(documentId, documentTitle)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -252,6 +253,62 @@ class GenerationWorker(
         ))
     }
 
+    private suspend fun doPolishNotes(documentId: Long, documentTitle: String): androidx.work.ListenableWorker.Result {
+        val cfg = ServiceLocator.configRepository.get(AppMode.Generate)
+        if (cfg == null || !cfg.isComplete()) {
+            return failure("Mode 3 settings configure karein. Settings → Mode 3 mein API key + model name daalein.")
+                .also { postFailure(GenerationManager.Type.PolishNotes, documentId, documentTitle, "Mode 3 settings missing") }
+        }
+
+        val notesRepo = ServiceLocator.notesRepository
+        val existing = notesRepo.get(documentId)
+        val origHtml = existing?.html ?: ""
+        if (origHtml.isBlank()) {
+            return failure("Polish karne ke liye notes HTML khaali hai.").also {
+                postFailure(GenerationManager.Type.PolishNotes, documentId, documentTitle, "Notes content not found")
+            }
+        }
+
+        setProgress(workDataOf(PROGRESS_MESSAGE to "Notes polish ho rahe hain (1-2 min)…"))
+        runCatching {
+            setForeground(buildForegroundInfo(
+                GenerationManager.Type.PolishNotes, documentTitle,
+                "Notes polish ho rahe hain (1-2 min)…"
+            ))
+        }
+
+        val html = com.reader.app.domain.notes.NotesGenerator.polish(
+            config       = cfg,
+            title        = documentTitle,
+            originalHtml = origHtml,
+        ).getOrElse { e ->
+            return failure(e.message ?: "Notes polish fail").also {
+                postFailure(GenerationManager.Type.PolishNotes, documentId, documentTitle, e.message ?: "Notes polish fail")
+            }
+        }
+
+        notesRepo.save(
+            documentId = documentId,
+            title = documentTitle,
+            html = html,
+            theme = existing?.theme ?: "light",
+            fontScale = existing?.fontScale ?: 1.0,
+            margin = existing?.margin ?: "normal",
+        )
+
+        NotificationHelper.postCompletion(
+            application = applicationContext as Application,
+            type = GenerationManager.Type.PolishNotes,
+            documentId = documentId,
+            title = "Polished notes ready",
+            body = "Your notes have been refined and visual quality is improved!",
+        )
+        return androidx.work.ListenableWorker.Result.success(workDataOf(
+            OUTPUT_DOC_TITLE to documentTitle,
+            OUTPUT_RESULT_ID to documentId,
+        ))
+    }
+
     /* ---------------- helpers ---------------- */
 
     private fun failure(message: String): androidx.work.ListenableWorker.Result =
@@ -268,8 +325,9 @@ class GenerationWorker(
             type = type,
             documentId = documentId,
             title = when (type) {
-                GenerationManager.Type.Mcq   -> "MCQ generation didn't complete"
-                GenerationManager.Type.Notes -> "Notes generation didn't complete"
+                GenerationManager.Type.Mcq         -> "MCQ generation didn't complete"
+                GenerationManager.Type.Notes       -> "Notes generation didn't complete"
+                GenerationManager.Type.PolishNotes  -> "Notes polishing didn't complete"
             },
             body = "$documentTitle — $reason",
         )
@@ -281,8 +339,9 @@ class GenerationWorker(
         message: String,
     ): ForegroundInfo {
         val notifTitle = when (type) {
-            GenerationManager.Type.Mcq   -> "Generating MCQ test"
-            GenerationManager.Type.Notes -> "Generating PDF notes"
+            GenerationManager.Type.Mcq         -> "Generating MCQ test"
+            GenerationManager.Type.Notes       -> "Generating PDF notes"
+            GenerationManager.Type.PolishNotes  -> "Polishing PDF notes"
         }
         val body = "$documentTitle — $message"
         val notification = NotificationHelper.buildOngoingNotification(

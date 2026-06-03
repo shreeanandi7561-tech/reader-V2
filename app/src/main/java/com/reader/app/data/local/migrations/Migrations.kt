@@ -233,3 +233,17 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         )
     }
 }
+
+/**
+ * v8 → v9: Advanced MCQ reconstruction fields.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `mcq_question` ADD COLUMN `sourceType` TEXT NOT NULL DEFAULT 'extracted'")
+        db.execSQL("ALTER TABLE `mcq_question` ADD COLUMN `confidenceLevel` TEXT NOT NULL DEFAULT 'high'")
+        db.execSQL("ALTER TABLE `mcq_question` ADD COLUMN `shortSolution` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `mcq_question` ADD COLUMN `conceptTested` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `mcq_question` ADD COLUMN `difficulty` TEXT NOT NULL DEFAULT 'Standard Competitive'")
+    }
+}
+

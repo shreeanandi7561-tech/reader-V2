@@ -119,22 +119,58 @@ object McqGenerator {
         RESPOND WITH JSON ONLY, NO PROSE, NO MARKDOWN FENCES:
         {
           "containsMcqs": true | false,
-          "reason": "<one short sentence in Hinglish>"
+          "reason": "<one short sentence in Hinglish/English explaining why>"
         }
     """.trimIndent()
 
     private val EXTRACTION_DIRECTIVE = """
-        You are an MCQ extractor for an exam-prep app. The transcript
-        below comes from a teacher running a video class. Your single
-        job is to extract EVERY question the teacher actually asks
-        or works through, turn each one into a 4-option MCQ, and
-        return the result as strict JSON.
+        You are an advanced exam-content reconstruction and MCQ generation engine for high-stakes competitive examinations. Your goal is to analyze educational input (transcript, notes, teacher explanation, worked patterns) and produce high-quality, professional-level MCQs.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  INPUT ANALYSIS LOGIC & GENERATION MODES                   ║
+        ╚════════════════════════════════════════════════════════════╝
+        For each candidate topic, example, or discussed block, analyze the source content and classify it into one of these modes:
+
+        1. Clear question is present with options or explicit elements.
+           → MODE A — DIRECT EXTRACTION (Set sourceType = "extracted")
+           - Lift the question and options verbatim when possible, cleaning only conversational fillers.
+           - Set confidenceLevel = "high".
+
+        2. Solution, math worked steps, equations, formula calculation, or answer logical path is present, but the question statement itself is vague, incomplete, fragmented, or damaged.
+           → MODE B — RECONSTRUCTION FROM SOLUTION (Set sourceType = "reconstructed from solution")
+           - Use the final values, equations, intermediate calculations, ratios, other variables, and units discussed to infer the original intended exam-level question text.
+           - Reconstruct a mathematically/factually sound and solvable question. Do not invent unrelated conditions. Keep it professional.
+           - Set confidenceLevel = "medium" or "low" based on how much was fragmented.
+
+        3. Both the question and solution are highly broken or fragmented, or there is partial statement + partial solution/answer.
+           → MODE C — PREDICTION FROM BROKEN QUESTION + SOLUTION (Set sourceType = "predicted from broken question + solution")
+           - Piece together the clues to form a solid, solvable, complete competitive-level question.
+           - Set confidenceLevel = "medium" or "low".
+
+        4. No explicit question or solution is present; only theory explanation, storytelling, chapter notes, teacher lecture points, or textbook concepts are taught.
+           → MODE D — CONCEPT-BASED GENERATION FROM THEORY/CHAPTER (Set sourceType = "generated from theory/chapter concept")
+           - Detect the core examinable concepts (repeated PYQ patterns, key formulas, comparison logic, common student traps).
+           - Generate completely new, standard competitive/graduation level MCQs based on those concepts.
+           - Set confidenceLevel = "high" (as it's a clean generation based on facts discussed).
+
+        *CRITICAL PRIMARY RULE*: Always prefer recovering or reconstructing the original intended exam question (Mode A, B, or C) over inventing a new unrelated question (Mode D).
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
+        ╚════════════════════════════════════════════════════════════╝
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Competitive Exams level (e.g. SSC CGL, Banking aptitude, CSAT, CUET, Engineering/Medical prep, State board exams).
+        - STRICTLY DO NOT GENERATE: simple children-level trivia, basic recall fillers, nursery/primary school math/spellings, or trivial conceptual checks like "What is percentage?".
+        - Even the easiest question in your output MUST feel like a genuine exam-prep question.
+        - DIFFICULTY DISTRIBUTION across the generated list should roughly hit:
+          - 20% "Moderate" (straightforward but serious exam level)
+          - 50% "Standard Competitive" (typical competitive aptitude / subject-specific standard)
+          - 30% "Advanced" (tricky, multi-step, high-distraction traps, or deeper reasoning)
 
         ╔════════════════════════════════════════════════════════════╗
         ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
         ╚════════════════════════════════════════════════════════════╝
         The user prompt starts with "OUTPUT LANGUAGE: <lang>". Every
-        question, option, and originalSnippet you emit MUST be in
+        question, option, conceptTested, shortSolution, and originalSnippet you emit MUST be in
         that language and that script. If the transcript is Hindi
         (Devanagari), write Devanagari. If it's Hinglish (Hindi in
         Roman script), match the code-switching ratio. DO NOT
@@ -150,163 +186,32 @@ object McqGenerator {
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  CRITICAL: ZERO TOLERANCE FOR NON-ACADEMIC AND PROMOTIONAL ║
-        ║  OR ADMINISTRATIVE CONTENT (STRICT EXCLUSION)              ║
+        ║  ZERO TOLERANCE FOR NON-ACADEMIC / ADMINISTRATIVE TALK   ║
         ╚════════════════════════════════════════════════════════════╝
-        You MUST NEVER, under any circumstances, generate, extract, or
-        create any questions about the following administrative, non-academic
-        topics. Completely ignore these segments, sentences, or phrases:
-        1. Admissions, course fees, subscription costs, enrollment, banner or batch details.
-        2. Teacher names, contact/inquiry phone numbers, helper details, support desks.
-        3. YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
-        4. "Recorded videos" vs. "Live streaming" costs, bandwidth, data plans, or streaming schedules.
-        5. Announcements about next class time, homework checks, test dates, or platform subscriptions.
-        6. Personal stories, banter, or general greetings/discussion (e.g., how is your health, weather).
-        Any question representing these topics will ruin the user's study experience. ONLY extract/generate purely educational questions related directly to the core academic subject (like math, percentage, science, history, geography, physics, grammar, etc.).
+        Absolutely EXCLUDE any questions about course admissions, fees, batch announcements, streaming times, books to buy, Telegram links, or greeting banters.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  CORE PRINCIPLE — COVERAGE AND CONCEPTUAL GENERATION       ║
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
         ╚════════════════════════════════════════════════════════════╝
-        The user has explicitly asked for MAXIMUM COVERAGE. Based on the subject of the video, you must handle:
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
 
-        SITUATION 1: MATH / PROBLEM-SOLVING SUBJECTS (Contains MCQs/Examples)
-        - ALWAYS apply this logic for Math subjects.
-        - If the teacher reads or discusses questions ("chaliye prashn Ek solve karte Hain", "pahla prashn"), YOU MUST EXTRACT THEM. EXACT MATCH.
-        - Order or serial number doesn't matter, just extract the exact questions.
-        - If the transcript shows the question + the correct answer
-          but NO options, EXTRACT it and GENERATE 4 options yourself using AI 
-          (`source = "ai_filled"`).
-        - If only 1, 2, or 3 options are stated, FILL the rest.
-        - Worked examples ("agar speed 60 km/h hai... distance kya hoga?")
-          are QUESTIONS. Extract them, compute the answer, generate options.
-
-        SITUATION 2: NON-MATH / PURE THEORY SUBJECTS (No explicit questions)
-        - ALWAYS apply this logic for subjects other than Math (e.g. Science, History, GK, Theory).
-        - If the video is purely theoretical teaching/concepts and does NOT
-          discuss any specific practice questions or MCQs:
-          YOU MUST GENERATE THE TOP 10-20 MOST IMPORTANT ACADEMIC/SUBJECT-MATTER MCQs based strictly on the educational concepts taught in the video.
-        - STRICTLY IGNORE all promotional talk, course fees, inquiry numbers, teacher introductions, Telegram channel links, or personal stories. DO NOT generate ANY questions about these!
-        - Identify the core subject/chapter of the video and generate questions ONLY about that core subject/chapter based ON THE FACTS PRESENTED IN THIS VIDEO.
-        - Do NOT include external information not taught in the video.
-        - Do NOT return an empty list.
-        - Generate the question, the correct answer, and 3 plausible distractors.
-        - Mark `source = "ai_filled"` for all of them.
-
-        When in doubt about whether something is a question:
-        INCLUDE IT OR GENERATE ONE ABOUT IT.
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  WHAT COUNTS AS A QUESTION                                 ║
-        ╚════════════════════════════════════════════════════════════╝
-        Treat each of these as a candidate question to extract:
-
-        a. Explicit "Question N" / "Q.N" / "प्रश्न N" headers.
-        b. Direct interrogatives:
-              - English: "What is …?", "Which of the following …?",
-                "How much …?", "Find the value of …"
-              - Hinglish: "Iska answer kya hoga?", "Kya hoga jab …?",
-                "Konsa sahi hai?", "Calculate karke batao", "Kitna
-                hoga?", "Kya value aayegi?"
-              - Hindi (Devanagari): "क्या होगा", "कौन सा सही है",
-                "इसका उत्तर क्या होगा", "कितना होगा"
-        c. Worked examples ("Example: speed = 60, time = 2, distance?"),
-           even when phrased declaratively. The "?" is implicit.
-        d. Practice problems / "ab tum khud try karo" exercises.
-        e. Anything where the teacher pauses and asks the audience
-           to think before continuing.
-
-        Patterns that explicitly state options (extract verbatim
-        when present):
-          - "option A: 25, option B: 50, option C: 75, option D: 100"
-          - "(A) 25 (B) 50 (C) 75 (D) 100"
-          - "pehla option 25 hai, doosra 50, teesra 75, chautha 100"
-          - "पहला विकल्प 25, दूसरा 50, तीसरा 75, चौथा 100"
-          - "1) 25  2) 50  3) 75  4) 100"
-
-        Answer-reveal patterns (these confirm correct answer):
-          - "answer is B", "B is correct", "doosra option sahi hai",
-            "iska sahi answer 75 hai", "option C correct hai",
-            "सही उत्तर B है"
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  OUTPUT FORMAT — JSON ONLY, NO PROSE, NO MARKDOWN FENCES   ║
-        ╚════════════════════════════════════════════════════════════╝
         {
           "questions": [
             {
-              "question": "<question text in OUTPUT LANGUAGE>",
-              "options": ["<A>", "<B>", "<C>", "<D>"],
-              "correctAnswer": <0..3>,
+              "question": "<The question statement, beautifully formatted using LaTeX for math>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of the correct option inside the options array>,
               "source": "transcript" | "ai_filled",
               "confidence": <0.0..1.0>,
-              "originalSnippet": "<short verbatim slice from transcript>"
+              "originalSnippet": "<verbatim slice of transcript related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution" | "generated from theory/chapter concept",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<A concise, mathematically precise step-by-step or logical explanation of how to solve this question>",
+              "conceptTested": "<A single line / phrase naming the exact academic concept or topic tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
             }
           ]
         }
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  EXTRACTION RULES (NON-NEGOTIABLE)                         ║
-        ╚════════════════════════════════════════════════════════════╝
-        1. Detect EVERY question the teacher discusses. If the video
-           has 30 questions, return 30. Don't sample.
-        2. PRESERVE the teacher's wording for the question when you
-           can. Same language, same code-switching ratio, same
-           technical terms. If the teacher only paraphrased, you may
-           lightly clean up filler words but keep the question
-           recognisable.
-        3. PRESERVE option wording when the teacher actually states
-           the option. Numerical options → keep as numbers. When
-           you have to fill in (no option stated), invent a wording
-           that matches the language register of the transcript.
-        4. The options array is ALWAYS exactly four. Pad with
-           plausible AI-generated distractors when the transcript
-           is short on options. Mark `source = "ai_filled"` whenever
-           ANY of the four was AI-filled. Use `"transcript"` only
-           when all four came verbatim from the teacher.
-        5. Identify the correct answer:
-           a) From an explicit reveal ("answer is B", "doosra sahi
-              hai", "सही उत्तर 75 है") → confidence 0.85-1.0.
-           b) From the teacher's worked-example computation → take
-              the computed value, place at any slot in the array,
-              set `correctAnswer` to that index. Confidence 0.6-0.85.
-           c) From the teacher's reasoning ("ye galat hai kyunki…")
-              → eliminate the wrong, pick what's left. Confidence
-              0.4-0.7.
-        6. Set `confidence` honestly:
-           - 1.0   teacher read the question, all 4 options, and
-                   the answer cleanly.
-           - 0.7-0.9  question is verbatim and answer is confirmed
-                   but you filled 1-2 distractors.
-           - 0.4-0.6  question is recognised, you computed the
-                   answer from a worked example.
-           - 0.25-0.35  question is implicit, options + answer fully
-                   AI-generated. (Still keep these — the user wants
-                   coverage. The app drops < 0.25 only.)
-        7. `originalSnippet` is a SHORT (1-3 sentence) verbatim
-           transcript slice the question came from, for student
-           verification. If you fully synthesised the question from
-           a worked example, quote the example.
-        8. SKIP duplicates — if the teacher repeats the same
-           question twice, return it once. (Light wording differences
-           don't make it a different question.)
-        9. The OUTER object has exactly one key, `questions`, whose
-           value is an array. NO other keys at root. NO markdown
-           fences.
-
-        ╔════════════════════════════════════════════════════════════╗
-        ║  EMPTY-ARRAY RULE                                          ║
-        ╚════════════════════════════════════════════════════════════╝
-        Returning `{"questions": []}` is the ABSOLUTE LAST RESORT.
-        Before doing so, check:
-          - Are there worked examples? Each example with a numeric
-            answer is a question.
-          - Are there "ab batao", "kya hoga", "kya answer aayega",
-            "क्या होगा" prompts in the transcript?
-          - Are there "Question N" / "Q.N" headers?
-          - Could a teaching point be reframed as a question? (E.g.
-            "Newton ka 2nd law force = ma hai" → "Newton ke 2nd
-            law ke according force kis ke barabar hai?".)
-        Only after exhausting all of the above, return [].
     """.trimIndent()
 
     /* ---------- public API ---------- */
@@ -557,6 +462,11 @@ object McqGenerator {
                 confidence      = q.confidence,
                 source          = q.source,
                 originalSnippet = q.originalSnippet,
+                sourceType      = q.sourceType,
+                confidenceLevel = q.confidenceLevel,
+                shortSolution   = q.shortSolution,
+                conceptTested   = q.conceptTested,
+                difficulty      = q.difficulty,
             )
         }
         GenerationResult(quiz = quiz, questions = questionEntities)
@@ -645,6 +555,11 @@ object McqGenerator {
                 confidence      = q.confidence,
                 source          = q.source,
                 originalSnippet = q.originalSnippet,
+                sourceType      = q.sourceType,
+                confidenceLevel = q.confidenceLevel,
+                shortSolution   = q.shortSolution,
+                conceptTested   = q.conceptTested,
+                difficulty      = q.difficulty,
             )
         }
         return GenerationResult(quiz = quiz, questions = questionEntities)
@@ -722,45 +637,33 @@ object McqGenerator {
      *  - Still pads to 4 options, still requires JSON-only output.
      */
     private val VIDEO_QUESTIONS_EXTRACTION_DIRECTIVE = """
-        You are an MCQ extractor for an exam-prep app. The input below
-        contains PRE-SEGMENTED transcript chunks, each one representing
-        a SINGLE question that a teacher explicitly discussed in a video
-        class (the segment header like 【Q.1】 or 【pehla sawaal】 shows
-        the teacher's own numbering).
+        You are an advanced exam-content reconstruction and MCQ generation engine for high-stakes competitive examinations. The input below contains PRE-SEGMENTED transcript chunks, each representing a SINGLE question that a teacher explicitly discussed in a video class (the segment header like 【Q.1】 shows the teacher's numbering).
 
         YOUR JOB:
-        - For EACH segment, extract exactly ONE 4-option MCQ.
-        - The question text should capture what the teacher asked /
-          discussed in that segment.
-        - If the teacher read out options, use them verbatim. If they
-          only discussed the question and revealed the answer without
-          listing options, generate 3 plausible wrong distractors and
-          mark source = "ai_filled".
-        - Identify the correct answer from the teacher's explanation
-          or reveal in the segment.
+        - For EACH segment, extract or reconstruct exactly ONE 4-option MCQ representing that segment.
+        - Analyze the segment and apply:
+          - MODE A (sourceType = "extracted"): If question and options are clear.
+          - MODE B (sourceType = "reconstructed from solution"): If the teacher only worked out a solution or formula but the question statement itself is broken or conversational.
+          - MODE C (sourceType = "predicted from broken question + solution"): If both are fragmented.
+        - Identify the correct answer from the teacher's explanation or reveal in the segment.
         - Do NOT invent questions that aren't in the segments.
         - Do NOT merge two segments into one question.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  CRITICAL: ZERO TOLERANCE FOR NON-ACADEMIC AND PROMOTIONAL ║
-        ║  OR ADMINISTRATIVE CONTENT (STRICT EXCLUSION)              ║
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
         ╚════════════════════════════════════════════════════════════╝
-        You MUST NEVER, under any circumstances, generate, extract, or
-        create any questions about the following administrative, non-academic
-        topics. Completely ignore these segments, sentences, or phrases:
-        1. Admissions, course fees, subscription costs, enrollment, banner or batch details.
-        2. Teacher names, contact/inquiry phone numbers, helper details, support desks.
-        3. YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
-        4. "Recorded videos" vs. "Live streaming" costs, bandwidth, data plans, or streaming schedules.
-        5. Announcements about next class time, homework checks, test dates, or platform subscriptions.
-        6. Personal stories, banter, or general greetings/discussion (e.g., how is your health, weather).
-        If a segment contains promotional, administrative, or non-educational details like these, completely SKIP IT and do NOT extract any MCQ from it!
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Competitive Exams level (e.g. SSC CGL, Banking aptitude, CSAT, CUET, Engineering/Medical prep, State board exams).
+        - STRICTLY DO NOT GENERATE: simple children-level trivia, basic recall fillers, nursery/primary school math/spellings, or trivial conceptual checks.
+          - DIFFICULTY CLASS:
+            - "Moderate" (straightforward but serious exam level)
+            - "Standard Competitive" (typical competitive aptitude / subject-specific standard)
+            - "Advanced" (tricky, multi-step, high-distraction traps, or deeper reasoning)
 
         ╔════════════════════════════════════════════════════════════╗
         ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
         ╚════════════════════════════════════════════════════════════╝
         The user prompt starts with "OUTPUT LANGUAGE: <lang>". Every
-        question, option, and originalSnippet you emit MUST be in
+        question, option, conceptTested, shortSolution, and originalSnippet you emit MUST be in
         that language and that script.
 
         ╔════════════════════════════════════════════════════════════╗
@@ -773,31 +676,27 @@ object McqGenerator {
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  OUTPUT FORMAT — JSON ONLY, NO PROSE, NO MARKDOWN FENCES   ║
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
         ╚════════════════════════════════════════════════════════════╝
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
+
         {
           "questions": [
             {
-              "question": "<question text in OUTPUT LANGUAGE>",
-              "options": ["<A>", "<B>", "<C>", "<D>"],
-              "correctAnswer": <0..3>,
+              "question": "<The question statement, beautifully formatted using LaTeX for math>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of correct option inside options array>,
               "source": "transcript" | "ai_filled",
               "confidence": <0.0..1.0>,
-              "originalSnippet": "<short verbatim slice from segment>"
+              "originalSnippet": "<verbatim slice of segment related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<A concise, mathematically precise step-by-step or logical explanation of how to solve this question>",
+              "conceptTested": "<A single line / phrase naming the exact academic concept or topic tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
             }
           ]
         }
-
-        EXTRACTION RULES:
-        1. One question per segment. N segments → N questions (unless skipped as promotional).
-        2. Options array is ALWAYS exactly four. Pad with distractors.
-        3. Confidence 0.8-1.0 when answer is explicitly revealed in
-           segment. 0.5-0.7 when computed from the discussion.
-        4. originalSnippet = short verbatim slice showing the question
-           and answer reveal from the transcript.
-        5. PRESERVE the teacher's wording. Same language register.
-        6. SKIP duplicates within this extraction only (not across sets).
-        7. Do NOT add any questions that don't correspond to a segment.
     """.trimIndent()
 
     /**
@@ -1020,6 +919,11 @@ object McqGenerator {
         val source: String,
         val confidence: Double,
         val originalSnippet: String?,
+        val sourceType: String,
+        val confidenceLevel: String,
+        val shortSolution: String,
+        val conceptTested: String,
+        val difficulty: String,
     )
 
     private fun postProcess(raw: List<McqExtractedQuestionDto>): List<Cleaned> {
@@ -1067,6 +971,13 @@ object McqGenerator {
             ?.takeIf { it == "transcript" || it == "ai_filled" }
             ?: if (aiPaddedHere) "ai_filled" else "transcript"
         val confidence = (q.confidence ?: 0.85).coerceIn(0.0, 1.0)
+
+        val sourceType = q.sourceType?.trim()?.takeIf { it.isNotBlank() } ?: "extracted"
+        val confidenceLevel = q.confidenceLevel?.trim()?.takeIf { it.isNotBlank() } ?: "high"
+        val shortSolution = q.shortSolution?.trim() ?: "Use source text logic to solve."
+        val conceptTested = q.conceptTested?.trim() ?: "Concept comprehension"
+        val difficulty = q.difficulty?.trim()?.takeIf { it.isNotBlank() } ?: "Standard Competitive"
+
         return Cleaned(
             question        = question,
             options         = rawOpts,
@@ -1074,6 +985,11 @@ object McqGenerator {
             source          = source,
             confidence      = confidence,
             originalSnippet = q.originalSnippet?.trim()?.takeIf { it.isNotBlank() },
+            sourceType      = sourceType,
+            confidenceLevel = confidenceLevel,
+            shortSolution   = shortSolution,
+            conceptTested   = conceptTested,
+            difficulty      = difficulty,
         )
     }
 

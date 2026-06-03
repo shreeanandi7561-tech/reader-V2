@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.map
  */
 object GenerationManager {
 
-    enum class Type { Mcq, Notes }
+    enum class Type { Mcq, Notes, PolishNotes }
 
     data class Key(val type: Type, val documentId: Long) {
         /** Stable WorkManager unique-work name. */
@@ -73,6 +73,12 @@ object GenerationManager {
         documentId: Long,
         documentTitle: String,
     ) = enqueue(application, Type.Notes, documentId, documentTitle)
+
+    fun startPolishNotes(
+        application: Application,
+        documentId: Long,
+        documentTitle: String,
+    ) = enqueue(application, Type.PolishNotes, documentId, documentTitle)
 
     /**
      * Live status for one generation. The flow stays subscribed

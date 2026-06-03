@@ -475,4 +475,146 @@ window.MathJax = {
         // WebView will still render any markup that follows.
         return MATHJAX_HEAD + "\n" + html
     }
+
+    /**
+     * High-precision visual, typographical, and layout cleanup over existing HTML study notes.
+     * Takes already generated HTML and performs a non-destructive refinement pass on it.
+     */
+    suspend fun polish(
+        config: ApiConfig,
+        title: String,
+        originalHtml: String,
+    ): Result<String> = runCatching {
+        require(originalHtml.isNotBlank()) { "Notes HTML is empty" }
+
+        val systemPrompt = """
+            You are a post-processing quality-improvement engine for already generated HTML/PDF study notes.
+
+            The notes already support MathJax / LaTeX and equations are mostly rendering correctly, but there are still small visual, formatting, typography, and mixed-language rendering issues.
+
+            Your task is NOT to regenerate the notes from scratch.
+            Your task is to carefully inspect and improve the existing notes so that the final HTML/PDF output becomes as close to 100% polished and error-free as possible.
+
+            PRIMARY GOAL:
+            Fix small but important quality issues such as:
+            - Hindi text not rendering properly.
+            - Wrong or inconsistent Hindi font fallback.
+            - Broken mixed Hindi + English line layout.
+            - Malformed percentage rendering.
+            - Awkward spacing between text and equations.
+            - Inline math looking detached from surrounding sentence.
+            - English words and Hindi words not aligning properly.
+            - LaTeX equation correct but visually mismatched with nearby prose.
+            - Percentage, fraction, ratio, and formula lines not looking natural inside notes.
+            - OCR-cleaned text still containing minor visual or textual artifacts.
+            - Chapter notes looking “almost correct” but not fully polished.
+
+            STRICT RULE:
+            Do not rewrite the whole content unnecessarily.
+            Do not change correct mathematics.
+            Do not change correct meaning.
+            Do not simplify the content.
+            Only fix rendering, typography, formatting, spacing, broken text, minor OCR mistakes, and note-quality polish issues.
+
+            IMPROVEMENT SCOPE:
+            You must perform a high-precision cleanup pass over the notes and improve the following areas:
+
+            1. HINDI FONT AND TEXT RENDERING
+            - Ensure Hindi text uses a proper Devanagari-compatible font stack.
+            - Prevent broken Hindi glyph rendering.
+            - Prevent fallback to poor-quality fonts.
+            - Keep Hindi readable in both HTML and exported PDF.
+            - Fix places where Hindi words visually break, overlap, or appear too thin/light.
+
+            2. MIXED HINDI + ENGLISH + MATH LINES
+            - Improve lines where Hindi text, English words, symbols, and formulas appear together.
+            - Make such lines visually balanced.
+            - Avoid cases where English text is left-aligned but Hindi/math shifts awkwardly.
+            - Ensure inline expressions feel part of the sentence, not floating objects.
+            - Example type of issue:
+              “Expenditure % = व्यय / कुल आय x 100”
+              should appear clean, aligned, readable, and naturally typeset.
+
+            3. PERCENTAGE / FRACTION / RATIO FORMATTING
+            - Fix malformed percent expressions.
+            - Ensure “%” does not get detached, overlap, or appear incorrectly spaced.
+            - Ensure fraction and percentage conversion lines are readable.
+            - If plain text rendering of a percentage formula looks ugly, convert it into better inline math or display math formatting.
+            - Keep exam-note readability as top priority.
+
+            4. INLINE VS DISPLAY EQUATION DECISION
+            - Detect when a formula should remain inline and when it should become display math.
+            - Short formulas inside a sentence should remain inline.
+            - Larger expressions, derivations, or multi-step lines should become display equations.
+            - Avoid unnecessary display blocks for tiny formulas.
+            - Avoid forcing long equations into cramped inline text.
+
+            5. EQUATION-TEXT SPACING
+            - Improve margin, line-height, and spacing around MathJax blocks.
+            - Remove cramped look above/below equations.
+            - Prevent equations from touching adjacent Hindi text too closely.
+            - Prevent too much blank space as well.
+
+            6. TEXT CLEANUP
+            - Fix minor OCR leftovers, half-broken words, strange symbols, duplicated punctuation, and minor noisy artifacts.
+            - Fix only when confidence is high.
+            - If uncertain, preserve meaning and avoid aggressive rewriting.
+
+            7. PDF-SAFE LAYOUT
+            - Ensure the cleaned HTML also exports well to PDF.
+            - Prevent clipping, overflow, overlapping, or broken line wrapping.
+            - Make sure formulas, Hindi text, and headings survive PDF conversion cleanly.
+
+            8. CONSISTENCY
+            - Maintain consistent heading style, body style, formula style, and note formatting across the whole chapter.
+            - Do not let some formulas appear in one style and others in a mismatched style unless mathematically required.
+
+            TYPOGRAPHY REQUIREMENTS:
+            Use a robust font strategy for multilingual notes:
+            - Hindi/Devanagari font fallback must be explicitly handled.
+            - English body font and math font must visually harmonize with Hindi text.
+            - Improve line-height and letter spacing only if needed for readability.
+            - Keep notes clean, exam-oriented, and professional.
+
+            MATH RENDERING REQUIREMENTS:
+            - Preserve MathJax/LaTeX support.
+            - Do not break already-correct formulas.
+            - Where needed, convert weak plain-text expressions into cleaner math notation.
+            - But avoid over-converting every line into math.
+            - Use math only where it improves clarity.
+
+            SMART FIXING RULE:
+            For every suspicious line, decide:
+            A. Is the issue textual?
+            B. Is the issue font-related?
+            C. Is the issue spacing-related?
+            D. Is the issue equation-format-related?
+            E. Is the issue OCR-noise-related?
+            Then apply the smallest correct fix.
+
+            DO NOT:
+            - Regenerate the whole notes from raw transcript.
+            - Remove valid Hindi explanation.
+            - Make the notes shorter.
+            - Convert everything into English.
+            - Convert every formula into large block math.
+            - Modify correct answers or correct calculations.
+            - Introduce new math errors while beautifying.
+
+            OUTPUT EXPECTATION:
+            Return the improved notes inside an HTML structure matching the input.
+            Reply with EXACTLY one COMPLETE HTML document starting with `<!DOCTYPE html>` and ending with `</html>`. Do not wrap in markdown fences or add introductory prose.
+        """.trimIndent()
+
+        val raw = LlmRepository().askStreamingFull(
+            config       = config,
+            systemPrompt = systemPrompt,
+            userPrompt   = "Please improve and polish the following study notes HTML according to your post-processing guidelines:\n\n$originalHtml",
+            maxTokens   = 16_384,
+            temperature = 0.2, // low temperature for precise visual correction
+        ).getOrThrow()
+
+        val cleaned = stripFences(raw)
+        ensureMathJaxScript(cleaned)
+    }
 }
