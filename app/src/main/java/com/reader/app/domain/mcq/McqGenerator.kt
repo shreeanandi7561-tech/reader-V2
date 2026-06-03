@@ -124,7 +124,32 @@ object McqGenerator {
     """.trimIndent()
 
     private val EXTRACTION_DIRECTIVE = """
-        You are an advanced exam-content reconstruction and MCQ generation engine for high-stakes competitive examinations. Your goal is to analyze educational input (transcript, notes, teacher explanation, worked patterns) and produce high-quality, professional-level MCQs.
+        You are a strict academic-content sanitization, math-safe note generation, and MCQ extraction engine for high-stakes competitive examinations. Your goal is to analyze educational input (transcript, notes, teacher explanation, worked patterns) and produce high-quality, professional-level MCQs.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs.
+        Before generating or extracting MCQs, classify every input line or reference into one of two buckets:
+
+        - BUCKET A (KEEP AT ALL COSTS):
+          - Concept explanations, definitions directly tied to the topic.
+          - Theorems, rules, laws, formulas.
+          - Solved examples, stepwise practice questions, numerical calculations.
+          - Derivations, proofs, step-by-step mathematical reasoning.
+          - Chapter-specific theory and exam-relevant shortcuts.
+          - Question statements, options, correct answers, short solutions, and concepts tested.
+
+        - BUCKET B (REMOVE COMPLETELY & AGGRESSIVELY):
+          - Course details, course fees, subscription costs, batch validity, pricing, course names, or promotional bullets.
+          - Promotional CTA: "join batch", "download app", "buy course", "watch full video", etc.
+          - Teacher names, self-references, biographies, introduction, helper details, support desks.
+          - YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
+          - Platform subscription, "recorded videos" vs. "live streaming" benefits, bandwidth announcements.
+          - Personal stories, banter, general greetings (e.g., how is your health, weather, casual chat), unrelated motivational filler.
+          - Transcript noise, half-translated or administrative details.
+
+        If any segment, sentence, or detail looks like advertisement, branding, course-selling, teacher promotion, or app metadata, remove it even if it appears near valid academic content. Only include content belonging directly to the academic chapter/topic/concept studied.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  INPUT ANALYSIS LOGIC & GENERATION MODES                   ║
@@ -156,6 +181,17 @@ object McqGenerator {
         *CRITICAL PRIMARY RULE*: Always prefer recovering or reconstructing the original intended exam question (Mode A, B, or C) over inventing a new unrelated question (Mode D).
 
         ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT MCQ OBLIGATION & FALLBACK ORDER                    ║
+        ╚════════════════════════════════════════════════════════════╝
+        If meaningful math or academic content exists in the material, at least some MCQs must be generated. Do not return empty MCQ output merely because raw transcript quality is imperfect.
+        Follow this strict fallback order if needed:
+        1. Direct question is present → extract and convert to MCQ.
+        2. Question is partial but method/answer is visible → reconstruct question and create MCQ.
+        3. Only solved example is visible → infer exam-style MCQ from it (e.g. change variables slightly, make standard distractors).
+        4. Only chapter theory is visible → generate concept-based important exam-style MCQs.
+        5. Multiple examples exist → produce multiple MCQs from the most exam-relevant ones.
+
+        ╔════════════════════════════════════════════════════════════╗
         ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
         ╚════════════════════════════════════════════════════════════╝
         - All questions MUST be at: Class 12 Boards level, Graduation level, or Competitive Exams level (e.g. SSC CGL, Banking aptitude, CSAT, CUET, Engineering/Medical prep, State board exams).
@@ -177,18 +213,20 @@ object McqGenerator {
         translate. Numbers stay as numbers regardless.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
         - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
         - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
-        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
+          Example: Keep Hindi text plain HTML/string format and wrap ONLY the numeric variables/operators in LaTeX blocks.
+        - LATEX SAFETY CHECK: Prioritize simple, stable, safe-render equation formatting over overly complex LaTeX. No raw or stray `&` inside formulas (unless part of a valid environment block), delimiters must be balanced, and mathematical expressions must render correctly. Never show raw backslash commands or corrupted percent expressions.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  ZERO TOLERANCE FOR NON-ACADEMIC / ADMINISTRATIVE TALK   ║
+        ║  CHAPTER-SPECIFIC FOCUS RULE                               ║
         ╚════════════════════════════════════════════════════════════╝
-        Absolutely EXCLUDE any questions about course admissions, fees, batch announcements, streaming times, books to buy, Telegram links, or greeting banters.
+        If the topic is percentage, then notes and MCQs must stay on percentage concepts, ratio/fraction/percentage relations, increase/decrease, income/expenditure/savings, equivalent fractions, percent conversions, and competitive exam-level applications. Do not drift into batch/course/app details.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
@@ -637,7 +675,32 @@ object McqGenerator {
      *  - Still pads to 4 options, still requires JSON-only output.
      */
     private val VIDEO_QUESTIONS_EXTRACTION_DIRECTIVE = """
-        You are an advanced exam-content reconstruction and MCQ generation engine for high-stakes competitive examinations. The input below contains PRE-SEGMENTED transcript chunks, each representing a SINGLE question that a teacher explicitly discussed in a video class (the segment header like 【Q.1】 shows the teacher's numbering).
+        You are a strict academic-content sanitization, math-safe note generation, and MCQ extraction engine. The input below contains PRE-SEGMENTED transcript chunks, each representing a SINGLE question that a teacher explicitly discussed in a video class (the segment header like 【Q.1】 shows the teacher's numbering).
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs.
+        Before generating or extracting MCQs, classify every input line or reference into one of two buckets:
+
+        - BUCKET A (KEEP AT ALL COSTS):
+          - Concept explanations, definitions directly tied to the topic.
+          - Theorems, rules, laws, formulas.
+          - Solved examples, stepwise practice questions, numerical calculations.
+          - Derivations, proofs, step-by-step mathematical reasoning.
+          - Chapter-specific theory and exam-relevant shortcuts.
+          - Question statements, options, correct answers, short solutions, and concepts tested.
+
+        - BUCKET B (REMOVE COMPLETELY & AGGRESSIVELY):
+          - Course details, course fees, subscription costs, batch validity, pricing, course names, or promotional bullets.
+          - Promotional CTA: "join batch", "download app", "buy course", "watch full video", etc.
+          - Teacher names, self-references, biographies, introduction, helper details, support desks.
+          - YouTube channel links, Telegram channels, mobile apps to download, PDFs to download.
+          - Platform subscription, "recorded videos" vs. "live streaming" benefits, bandwidth announcements.
+          - Personal stories, banter, general greetings (e.g., how is your health, weather, casual chat), unrelated motivational filler.
+          - Transcript noise, half-translated or administrative details.
+
+        If any segment, sentence, or detail looks like advertisement, branding, course-selling, teacher promotion, or app metadata, remove it even if it appears near valid academic content. Only include content belonging directly to the academic chapter/topic/concept studied.
 
         YOUR JOB:
         - For EACH segment, extract or reconstruct exactly ONE 4-option MCQ representing that segment.
@@ -648,6 +711,17 @@ object McqGenerator {
         - Identify the correct answer from the teacher's explanation or reveal in the segment.
         - Do NOT invent questions that aren't in the segments.
         - Do NOT merge two segments into one question.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT MCQ OBLIGATION & FALLBACK ORDER                    ║
+        ╚════════════════════════════════════════════════════════════╝
+        If meaningful math or academic content exists in the material, at least some MCQs must be generated. Do not return empty MCQ output merely because raw transcript quality is imperfect.
+        Follow this strict fallback order if needed:
+        1. Direct question is present → extract and convert to MCQ.
+        2. Question is partial but method/answer is visible → reconstruct question and create MCQ.
+        3. Only solved example is visible → infer exam-style MCQ from it (e.g. change variables slightly, make standard distractors).
+        4. Only chapter theory is visible → generate concept-based important exam-style MCQs.
+        5. Multiple examples exist → produce multiple MCQs from the most exam-relevant ones.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
@@ -667,13 +741,15 @@ object McqGenerator {
         that language and that script.
 
         ╔════════════════════════════════════════════════════════════╗
-        ║  MATH RENDERING — USE LaTeX, NOT PLAIN TEXT                ║
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
         ╚════════════════════════════════════════════════════════════╝
         You MUST emit math expressions in LaTeX for MathJax.
         - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
         - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
-        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`).
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
         - CRITICAL: MathJax cannot render Hindi characters correctly. Keep ALL Hindi text OUTSIDE of the math blocks. Only place numbers, variables, and math operators inside the math blocks.
+          Example: Keep Hindi text plain HTML/string format and wrap ONLY the numeric variables/operators in LaTeX blocks.
+        - LATEX SAFETY CHECK: Prioritize simple, stable, safe-render equation formatting over overly complex LaTeX. No raw or stray `&` inside formulas (unless part of a valid environment block), delimiters must be balanced, and mathematical expressions must render correctly. Never show raw backslash commands or corrupted percent expressions.
 
         ╔════════════════════════════════════════════════════════════╗
         ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
