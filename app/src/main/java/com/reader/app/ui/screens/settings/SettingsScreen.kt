@@ -68,7 +68,7 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Provide up to 10 Gemini API keys. The app will automatically round-robin and load balance across them to avoid hitting rate limits. Model is hardcoded to gemini-flash-latest.",
+                    "Provide up to 10 Gemini API keys. The app will automatically round-robin and load balance across them to avoid hitting rate limits. Model is hardcoded to gemini-1.5-flash-latest.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

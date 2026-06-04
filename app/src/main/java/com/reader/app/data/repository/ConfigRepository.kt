@@ -132,7 +132,7 @@ class ConfigRepository(
             mode = mode,
             provider = LlmProvider.Gemini,
             apiKey = key,
-            modelName = "gemini-flash-latest" // Hardcoded as requested
+            modelName = "gemini-1.5-flash-latest"
         )
     }
 
@@ -204,7 +204,7 @@ class ConfigRepository(
                 mode = mode,
                 provider = LlmProvider.Gemini,
                 apiKey = fallbackKey,
-                modelName = "gemini-flash-latest"
+                modelName = "gemini-1.5-flash-latest"
             )
         }
     }
