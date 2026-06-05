@@ -132,7 +132,7 @@ class ConfigRepository(
             mode = mode,
             provider = LlmProvider.Gemini,
             apiKey = key,
-            modelName = "gemini-1.5-flash-latest"
+            modelName = "gemini-flash-latest" // Hardcoded as requested
         )
     }
 
@@ -167,9 +167,14 @@ class ConfigRepository(
         }
         edit.putString("lasterror_$idx", cleanMsg)
         
+        // Cooldown rotation:
         if (isQuotaExceeded) {
-            // Set cooldown for 10 minutes (600,000 ms) so caller skips this API slot
-            val cooldownUntil = System.currentTimeMillis() + 600_000L
+            // Hot rate-limit/quota/billing cooldown (15 minutes)
+            val cooldownUntil = System.currentTimeMillis() + 900_000L
+            edit.putLong("cooldown_$idx", cooldownUntil)
+        } else {
+            // Warm failure (transient/network/unpaid) cooldown (3 minutes)
+            val cooldownUntil = System.currentTimeMillis() + 180_000L
             edit.putLong("cooldown_$idx", cooldownUntil)
         }
         edit.apply()
@@ -204,7 +209,7 @@ class ConfigRepository(
                 mode = mode,
                 provider = LlmProvider.Gemini,
                 apiKey = fallbackKey,
-                modelName = "gemini-1.5-flash-latest"
+                modelName = "gemini-flash-latest"
             )
         }
     }

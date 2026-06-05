@@ -62,9 +62,16 @@ class LlmRepository {
                 msg.contains("rate limit") ||
                 msg.contains("exceeded") ||
                 msg.contains("429") ||
-                msg.contains("exhausted")
+                msg.contains("exhausted") ||
+                msg.contains("bill") ||
+                msg.contains("pay") ||
+                msg.contains("limit") ||
+                msg.contains("key") ||
+                msg.contains("invalid") ||
+                msg.contains("blocked")
         if (throwable is HttpException) {
-            if (throwable.code() == 429) return true
+            val code = throwable.code()
+            if (code == 429 || code == 403 || code == 401) return true
         }
         val cause = throwable.cause
         if (cause != null && cause != throwable) {
@@ -99,9 +106,9 @@ class LlmRepository {
             val isQuota = isQuotaExceededError(exception)
             ServiceLocator.configRepository.recordFailure(currentConfig.apiKey, exception.message.orEmpty(), isQuota)
 
-            if (isQuota && attempt < maxAttempts) {
+            if (attempt < maxAttempts) {
                 val nextConfig = ServiceLocator.configRepository.get(currentConfig.mode)
-                if (nextConfig != null && nextConfig.apiKey != currentConfig.apiKey) {
+                if (nextConfig != null) {
                     currentConfig = nextConfig
                     continue
                 }
@@ -416,9 +423,9 @@ class LlmRepository {
                     val isQuota = isQuotaExceededError(e)
                     ServiceLocator.configRepository.recordFailure(currentConfig.apiKey, e.message.orEmpty(), isQuota)
                     
-                    if (isQuota && attempt < maxAttempts) {
+                    if (attempt < maxAttempts) {
                         val nextConfig = ServiceLocator.configRepository.get(currentConfig.mode)
-                        if (nextConfig != null && nextConfig.apiKey != currentConfig.apiKey) {
+                        if (nextConfig != null) {
                             currentConfig = nextConfig
                             continue
                         }

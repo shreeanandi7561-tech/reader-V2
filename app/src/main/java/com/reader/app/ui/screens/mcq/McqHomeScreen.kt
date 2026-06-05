@@ -11,12 +11,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -81,18 +86,31 @@ fun McqHomeScreen(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "MCQ test sirf un videos pe banega jahan teacher questions, " +
-                    "options aur answers discuss karte hain.",
+                "Naya MCQ test generate karne ke liye subject type select karein:",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(16.dp))
 
-            GenerateButton(
-                isBusy   = state.isBusy,
-                progress = state.progressLabel,
-                onClick  = vm::generateQuiz,
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                GenerateButton(
+                    isBusy   = state.isBusy,
+                    progress = state.progressLabel,
+                    label    = "Math MCQ Test (Reverse Solutions)",
+                    icon     = Icons.Default.Calculate,
+                    onClick  = { vm.generateQuiz("MATH") }
+                )
+                GenerateButton(
+                    isBusy   = state.isBusy,
+                    progress = state.progressLabel,
+                    label    = "Theory/Subject MCQ (Chapter Concepts)",
+                    icon     = Icons.AutoMirrored.Filled.MenuBook,
+                    onClick  = { vm.generateQuiz("THEORY") }
+                )
+            }
 
             if (state.isBusy) {
                 Spacer(Modifier.height(12.dp))
@@ -149,19 +167,35 @@ fun McqHomeScreen(
 private fun GenerateButton(
     isBusy: Boolean,
     progress: String?,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
 ) {
-    Button(onClick = onClick, enabled = !isBusy) {
+    Button(
+        onClick = onClick,
+        enabled = !isBusy,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
         if (isBusy) {
             CircularProgressIndicator(
-                modifier   = Modifier.size(14.dp),
+                modifier   = Modifier.size(18.dp),
                 strokeWidth = 2.dp,
                 color      = MaterialTheme.colorScheme.onPrimary,
             )
             Spacer(Modifier.size(8.dp))
-            Text(progress ?: "Generate ho raha hai…")
+            Text(progress ?: "Generating…")
         } else {
-            Text("Generate new MCQ test")
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(Modifier.size(8.dp))
+            Text(label, style = MaterialTheme.typography.titleSmall)
         }
     }
 }

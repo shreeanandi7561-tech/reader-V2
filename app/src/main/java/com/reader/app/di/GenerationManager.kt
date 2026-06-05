@@ -66,19 +66,20 @@ object GenerationManager {
         application: Application,
         documentId: Long,
         documentTitle: String,
-    ) = enqueue(application, Type.Mcq, documentId, documentTitle)
+        mcqMode: String,
+    ) = enqueue(application, Type.Mcq, documentId, documentTitle, mcqMode)
 
     fun startNotes(
         application: Application,
         documentId: Long,
         documentTitle: String,
-    ) = enqueue(application, Type.Notes, documentId, documentTitle)
+    ) = enqueue(application, Type.Notes, documentId, documentTitle, null)
 
     fun startPolishNotes(
         application: Application,
         documentId: Long,
         documentTitle: String,
-    ) = enqueue(application, Type.PolishNotes, documentId, documentTitle)
+    ) = enqueue(application, Type.PolishNotes, documentId, documentTitle, null)
 
     /**
      * Live status for one generation. The flow stays subscribed
@@ -135,12 +136,14 @@ object GenerationManager {
         type: Type,
         documentId: Long,
         documentTitle: String,
+        mcqMode: String?,
     ) {
         val key = Key(type, documentId)
         val data = workDataOf(
             GenerationWorker.INPUT_TYPE to type.name,
             GenerationWorker.INPUT_DOCUMENT_ID to documentId,
             GenerationWorker.INPUT_DOCUMENT_TITLE to documentTitle,
+            GenerationWorker.INPUT_MCQ_MODE to mcqMode,
         )
         val req = OneTimeWorkRequestBuilder<GenerationWorker>()
             .setInputData(data)

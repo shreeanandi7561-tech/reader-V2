@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -25,13 +26,13 @@ fun MathJaxViewer(
     textColorHex: String = "#1C1B1F",
     textSizePx: Int = 17
 ) {
-    var webViewHeight by remember { mutableStateOf(80) } // safe initial minimum height in pixels
+    var webViewHeight by remember { mutableStateOf(40) } // safe initial minimum height in dp
     val density = LocalDensity.current
 
     AndroidView(
         modifier = modifier
             .fillMaxWidth()
-            .height(with(density) { webViewHeight.toDp() }),
+            .height(webViewHeight.dp),
         factory = { context ->
             WebView(context).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -91,9 +92,8 @@ fun MathJaxViewer(
                         </script>
                         <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" onerror="this.onerror=null; var script=document.createElement('script'); script.src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js'; document.head.appendChild(script);"></script>
                         <style>
-                            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Devanagari:wght@400;700&display=swap');
                             body { 
-                                font-family: 'Noto Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                                font-family: system-ui, -apple-system, sans-serif, 'Noto Sans Devanagari'; 
                                 font-size: ${textSizePx}px; 
                                 color: ${textColorHex}; 
                                 padding: 0; 

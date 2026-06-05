@@ -68,7 +68,7 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Provide up to 10 Gemini API keys. The app will automatically round-robin and load balance across them to avoid hitting rate limits. Model is hardcoded to gemini-1.5-flash-latest.",
+                    "Provide up to 10 Gemini API keys. The app will automatically round-robin and load balance across them to avoid hitting rate limits. Model is hardcoded to gemini-flash-latest.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -168,8 +168,8 @@ fun SettingsScreen(
                             onClick = {},
                             enabled = false,
                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                             )
                         ) {
                             Icon(

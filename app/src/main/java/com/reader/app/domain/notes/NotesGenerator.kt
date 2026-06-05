@@ -132,7 +132,7 @@ window.MathJax = {
         The user prompt starts with a line "OUTPUT LANGUAGE: <lang>".
         That is the ONLY language you may use for body content.
         DO NOT translate the transcript. If the transcript is in Hindi
-        (Devanagari), the notes MUST be in Hindi. If Hinglish, use Hinglish.
+        (Devanagari), the notes MUST be in Hindi. If Hinglish is used/detected, you MUST write the output in हिन्दी (Bilingual) using Devanagari script. Do NOT write in Roman script Hinglish.
         Keep the exact academic wording and explanations where appropriate.
 
         ╔════════════════════════════════════════════════════════════╗
@@ -195,10 +195,9 @@ window.MathJax = {
         You MUST emit this EXACT `<style>` block in `<head>`. Do not change it.
         It provides the bilingual font support, margin spacing, and eye-comfort colors requested.
 
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Devanagari:wght@400;700&display=swap');
         @page { size: A4; margin: 1.8cm; }
         body { 
-            font-family: 'Noto Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif, 'Noto Sans Devanagari';
             font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
         }
         h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }
@@ -300,7 +299,7 @@ window.MathJax = {
             if (stripFences(raw).trim().length < 100) {
                 raw = oneShot(config, title, transcript, lang, systemPrompt, retryNudge = true)
             }
-            html = stripFences(raw)
+            html = postProcess(raw, title)
         } else {
             // Default-prompt path — full validation + structural
             // wrap + MathJax injection (existing behaviour).
@@ -433,10 +432,9 @@ window.MathJax = {
               <title>$safeTitle</title>
               $MATHJAX_HEAD
               <style>
-                @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Devanagari:wght@400;700&display=swap');
                 @page { size: A4; margin: 1.8cm; }
                 body { 
-                    font-family: 'Noto Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    font-family: system-ui, -apple-system, sans-serif, 'Noto Sans Devanagari';
                     font-size: 11pt; line-height: 1.6; color: #333333; background: #fdfcf9; 
                 }
                 h1 { font-size: 22pt; font-weight: 700; border-bottom: 2px solid #5a5a5a; padding-bottom: 6px; color: #222; }

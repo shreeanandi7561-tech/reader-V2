@@ -255,6 +255,270 @@ object McqGenerator {
         }
     """.trimIndent()
 
+    private val MATH_EXTRACTION_DIRECTIVE = """
+        You are a strict academic-content sanitization, math-safe note generation, and MCQ extraction engine for high-stakes competitive examinations.
+        Your goal is to analyze educational input (transcript, notes, teacher explanation, worked patterns) and produce high-quality, professional-level MCQs focusing on MATHEMATICS & ARITHMETIC.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs.
+        If any segment, sentence, or detail looks like advertisement, branding, course-selling, teacher promotion, or app metadata, remove it aggressively even if it appears near valid academic content.
+        EVERY generated MCQ item must be 100% academic, testing school/college/exam-level mathematical knowledge.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  REVERSE ENGINEERING OF SOLUTIONS & MATH PIPELINE          ║
+        ╚════════════════════════════════════════════════════════════╝
+        Math MCQ generation requires a highly successful reverse engineering approach of solutions:
+        1. IDENTIFY & SEPARATE SOLUTIONS: Scan the transcript to identify and separate different step-by-step math solutions from each other. Ensure that the calculation steps, formulas, and parameters of one question do not get mixed with those of another.
+        2. REVERSE ENGINEER QUESTION: For each isolated solution/calculation path, reverse engineer the starting question. Find what problem/theory/formula was being solved.
+        3. FORMULATE THE QUESTION STATEMENT: Reconstruct a complete, professionally written, and grammatically correct math question. Clean up transcript speech stuttering, incomplete phrases, or broken dialogue.
+        4. OPTION RECONSTRUCTION & AI GENERATION: If options are explicitly mentioned or visible, extract them. If options are missing or incomplete, use AI to generate highly professional, challenging competitive-level options (with clever distractor traps based on common calculation mistakes).
+        5. ENTIRE SET MUST BE COHERENT: Ensure each math question is factually, logically, and mathematically correct, solvable, and has exactly one correct answer.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT MCQ OBLIGATION & FALLBACK ORDER                    ║
+        ╚════════════════════════════════════════════════════════════╝
+        If mathematical content exists, MCQs must be generated. Follow this fallback order:
+        1. Direct math question + option/solution exists -> extract and form MCQ.
+        2. Math solution exists, but question statement is broken/incomplete -> reverse engineer question from the solution step and values, then construct MCQ.
+        3. Only an example or theory concept is visible -> generate a highly standard competitive-exam style math question using that concept or formula.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
+        ╚════════════════════════════════════════════════════════════╝
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Standard Competitive Exams level (e.g. SSC CGL, Banking aptitude, CSAT, CUET, JEE, State board exams).
+        - STRICTLY DO NOT GENERATE: simple child-level basic arithmetic (e.g., basic additions, 2+2, trivial single-digit checks).
+        - DIFFICULTY CLASS:
+          - "Moderate" (straightforward but serious exam level)
+          - "Standard Competitive" (typical competitive aptitude standard)
+          - "Advanced" (tricky, multi-step, deep logical reasoning or trap options)
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
+        ╚════════════════════════════════════════════════════════════╝
+        The user prompt starts with "OUTPUT LANGUAGE: <lang>". Every
+        question, option, conceptTested, shortSolution, and originalSnippet you emit MUST be in
+        that language and that script. If the transcript language is Hindi (Devanagari), write in Devanagari. If Hinglish, match Hinglish.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST emit math expressions in LaTeX for MathJax.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`).
+        - Ensure fraction, percentage, ratio, and formula lines look natural. Prefer vertical division/fraction notation `\frac{numerator}{denominator}` rather than `/` or `÷`!
+        - CRITICAL: MathJax cannot render Hindi/Devanagari characters correctly. Keep ALL Hindi text OUTSIDE of LaTeX blocks. Only place numbers, variables, and math operators inside. Keep Devanagari/Hindi text completely out of LaTeX delimiters to avoid rendering errors.
+          Example of BAD LaTeX: `\\( \text{प्रतिशत} = \frac{\text{लाभ}}{\text{क्रय मूल्य}} \times 100 \\)` (This will CRASH the renderer!).
+          Example of GOOD LaTeX: "लाभ प्रतिशत = `\\( \frac{\text{Profit}}{\text{CP}} \times 100 \\)` hai jahan Profit aur CP..."
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
+        ╚════════════════════════════════════════════════════════════╝
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
+
+        {
+          "questions": [
+            {
+              "question": "<The question statement, beautifully formatted using LaTeX for math>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of the correct option inside the options array>,
+              "source": "transcript" | "ai_filled",
+              "confidence": <0.0..1.0>,
+              "originalSnippet": "<verbatim slice of transcript related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution" | "generated from theory/chapter concept",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<A concise, mathematically precise step-by-step description or calculation sheet>",
+              "conceptTested": "<A single line / phrase naming the exact math concept tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private val THEORY_EXTRACTION_DIRECTIVE = """
+        You are a strict academic-content sanitization, note generation, and MCQ extraction engine for high-stakes competitive examinations.
+        Your goal is to analyze educational input (transcript, notes, teacher explanation, worked patterns) and produce high-quality, professional-level MCQs focusing on THEORY AND COGNITIVE SUBJECTS (such as GK, History, Geography, Physics theory, Biology, Chemistry, Civics, Business Studies, etc.).
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs. Remove them aggressively.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  THEORY & CONCEPT CHAPTER-LEVEL FOCUS                      ║
+        ╚════════════════════════════════════════════════════════════╝
+        We focus on theoretical, story, or chapter concepts:
+        1. DETECT TOPIC/CHAPTER: From the context (title, content, transcript body), identify the exact academic topic or subject chapter being taught.
+        2. COMPREHENSIVE CONCEPT COVERAGE: Formulate a list of the most important examinable concepts within this chapter/topic.
+        3. HIGH-STANDARD MCQ GENERATION: Create detailed, high-quality, conceptual multiple-choice questions testing deeper understanding, factual details, comparisons, cause-and-effect, and rules of the chapter topic.
+        4. ALL QUESTIONS must be complex, useful for actual test practice, and structurally complete. Every option must be realistic, challenging, and plausible.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
+        ╚════════════════════════════════════════════════════════════╝
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Standard Competitive Exams level (e.g. UPSC civil services, SSC CGL, Banking aptitude, CUET, State board exams).
+        - STRICTLY DO NOT GENERATE: simple trivia, basic spelling recall, simple nursery checks, or child-level fillers.
+        - DIFFICULTY CLASS:
+          - "Moderate" (straightforward but serious exam level)
+          - "Standard Competitive" (typical competitive aptitude / subject-specific standard)
+          - "Advanced" (tricky, multi-step, deep conceptual logic or high-distraction traps)
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
+        ╚════════════════════════════════════════════════════════════╝
+        Match the specified OUTPUT LANGUAGE and script. Do not translate.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
+        ╚════════════════════════════════════════════════════════════╝
+        If the theory has any formula or equation, wrap it in LaTeX.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
+        - CRITICAL: MathJax can NOT render Hindi Devanagari characters correctly. Keep all Hindi/Devanagari text OUTSIDE LaTeX blocks.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
+        ╚════════════════════════════════════════════════════════════╝
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
+
+        {
+          "questions": [
+            {
+              "question": "<The question statement, beautifully formatted, containing facts/concepts>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of the correct option inside the options array>,
+              "source": "transcript" | "ai_filled",
+              "confidence": <0.0..1.0>,
+              "originalSnippet": "<verbatim slice of segment related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution" | "generated from theory/chapter concept",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<A concise, mathematically/factually precise step-by-step or logical explanation of how to solve this question>",
+              "conceptTested": "<Name of the precise theory concept tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private val MATH_VIDEO_QUESTIONS_DIRECTIVE = """
+        You are a strict academic-content sanitization, math-safe note generation, and MCQ extraction engine. The input below contains PRE-SEGMENTED transcript chunks, each representing a SINGLE math question that a teacher explicitly discussed in a video class (the segment header like 【Q.1】 shows the teacher's numbering).
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs. Remove them aggressively.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  REVERSE ENGINEERING OF SOLUTIONS & MATH SEGMENTS          ║
+        ╚════════════════════════════════════════════════════════════╝
+        For each segment:
+        1. ISOLATE SOLUTION: Read the segment's calculations, step-by-step working, equations, and solutions. Keep it strictly focused and separated from any other segments.
+        2. REVERSE ENGINEER QUESTION: Detect the question statement. If the question statement is broken, incomplete, or merely spoken in fragments ("tute-fute" words/sentences), reverse engineer the mathematical problem from the solutions and calculation values.
+        3. COMPLETE RECONSTRUCTION: Formulate a 100% complete, correct, solvable question.
+        4. OPTION EXTRACTION / GENERATION: Extract correct answer and options from discussion. If options are missing, use AI to generate elegant standard exam-style option distractors.
+        5. DO NOT merge different segments into one question.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
+        ╚════════════════════════════════════════════════════════════╝
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Standard Competitive Exams level (e.g. SSC CGL, Banking aptitude, CSAT, CUET, State board exams). No kids trivia or basic nursery math.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
+        ╚════════════════════════════════════════════════════════════╝
+        Match the specified OUTPUT LANGUAGE and script. Do not translate. Numbers stay numeric.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You MUST emit math expressions in LaTeX for MathJax.
+        - INLINE math: wrap in `\\(` and `\\)`. DO NOT use single dollar signs.
+        - DISPLAY math: wrap in `\\[` and `\\]`. DO NOT use double dollar signs.
+        - Use proper LaTeX commands (`\frac`, `\sqrt`, `x^{2}`, `\times`). Prefer vertical fraction divisions `\frac{a}{b}` over slashes.
+        - CRITICAL: MathJax cannot render Hindi/Devanagari characters correctly. Keep ALL Hindi text OUTSIDE of LaTeX blocks. Only place numbers, variables, and math operators inside. Keep Devanagari/Hindi text completely out of LaTeX delimiters to avoid rendering errors.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
+        ╚════════════════════════════════════════════════════════════╝
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
+
+        {
+          "questions": [
+            {
+              "question": "<The question statement, beautifully formatted using LaTeX for math>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of the correct option inside the options array>,
+              "source": "transcript" | "ai_filled",
+              "confidence": <0.0..1.0>,
+              "originalSnippet": "<verbatim slice of segment related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<Concise step-by-step mathematical explanation of the answer, using LaTeX equations>",
+              "conceptTested": "<Specific mathematical concept tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private val THEORY_VIDEO_QUESTIONS_DIRECTIVE = """
+        You are a strict academic-content sanitization, note generation, and MCQ extraction engine. The input below contains PRE-SEGMENTED transcript chunks, each representing a SINGLE question that a teacher explicitly discussed in a video class (the segment header like 【Q.1】 shows the teacher's numbering) focusing on THEORY/COGNITIVE SUBJECTS.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  STRICT ACADEMIC-ONLY CONTENT BOUNDARY RULE                ║
+        ╚════════════════════════════════════════════════════════════╝
+        You must NOT include any promotional, personal, branding, app-marketing, batch, subscription, course-selling, teacher-bio, institute-advertisement, or unrelated metadata inside your MCQs. Remove them aggressively.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  YOUR JOB:                                                 ║
+        ╚════════════════════════════════════════════════════════════╝
+        - For EACH segment, extract or reconstruct exactly ONE 4-option MCQ representing that segment's theoretical concept or question.
+        - Identify the correct answer from the teacher's explanation or reveal.
+        - Reconstruct a grammatically complete, professionally sound question statement from the broken transcript dialogue.
+        - Do NOT invent questions that aren't discussed in the segments.
+        - Do NOT merge two segments into one question.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  DIFFICULTY & ACADEMIC STANDARDS (NON-NEGOTIABLE)          ║
+        ╚════════════════════════════════════════════════════════════╝
+        - All questions MUST be at: Class 12 Boards level, Graduation level, or Standard Competitive Exams level. No child-level trivia or simple recall fillers.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  RULE 0 — LANGUAGE (NON-NEGOTIABLE)                        ║
+        ╚════════════════════════════════════════════════════════════╝
+        Match the specified OUTPUT LANGUAGE and script. Do not translate.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  MATH RENDERING SAFETY & LATEX REQUIREMENTS                ║
+        ╚════════════════════════════════════════════════════════════╝
+        Wrap formulas in LaTeX formats. Keep Devanagari/Hindi text OUTSIDE of LaTeX delimiters entirely to avoid rendering errors.
+
+        ╔════════════════════════════════════════════════════════════╗
+        ║  OUTPUT FORMAT — STRICT JSON ONLY                          ║
+        ╚════════════════════════════════════════════════════════════╝
+        Return exactly this JSON format. No wordy preamble or postamble. No markdown enclosing tags.
+
+        {
+          "questions": [
+            {
+              "question": "<The question statement, beautifully formatted>",
+              "options": ["<Option A>", "<Option B>", "<Option C>", "<Option D>"],
+              "correctAnswer": <0..3, index of the correct option inside the options array>,
+              "source": "transcript" | "ai_filled",
+              "confidence": <0.0..1.0>,
+              "originalSnippet": "<verbatim slice of segment related to this question / explanation>",
+              "sourceType": "extracted" | "reconstructed from solution" | "predicted from broken question + solution",
+              "confidenceLevel": "high" | "medium" | "low",
+              "shortSolution": "<A concise step-by-step conceptual/logical explanation of the answer>",
+              "conceptTested": "<Name of the precise academic concept tested>",
+              "difficulty": "Moderate" | "Standard Competitive" | "Advanced"
+            }
+          ]
+        }
+    """.trimIndent()
+
     /* ---------- public API ---------- */
 
     /**
@@ -405,6 +669,7 @@ object McqGenerator {
         transcript: String,
         previousQuestionTexts: List<String> = emptyList(),
         questionSegments: List<VideoQuestionDetector.QuestionSegment> = emptyList(),
+        mcqMode: String = "THEORY",
     ): Result<GenerationResult> = runCatching {
         require(transcript.isNotBlank()) { "transcript is empty" }
         val lang = LanguageDetect.detect(transcript)
@@ -418,6 +683,7 @@ object McqGenerator {
                 segments = questionSegments,
                 lang = lang,
                 previousQuestionTexts = previousQuestionTexts,
+                mcqMode = mcqMode,
             )
         }
 
@@ -441,7 +707,7 @@ object McqGenerator {
         // generation on one chunk's bad JSON.
         val firstPass: List<Cleaned> = chunks.flatMap { chunk ->
             runCatching {
-                extractOnce(config, chunk, lang, retryNudge = false, exclusionClause = exclusionClause)
+                extractOnce(config, chunk, lang, retryNudge = false, exclusionClause = exclusionClause, mcqMode = mcqMode)
             }.getOrDefault(emptyList())
         }
         var merged = mergeAndDedupe(firstPass, previousQuestionTexts)
@@ -454,7 +720,7 @@ object McqGenerator {
         if (merged.isEmpty()) {
             val retryPass: List<Cleaned> = chunks.flatMap { chunk ->
                 runCatching {
-                    extractOnce(config, chunk, lang, retryNudge = true, exclusionClause = exclusionClause)
+                    extractOnce(config, chunk, lang, retryNudge = true, exclusionClause = exclusionClause, mcqMode = mcqMode)
                 }.getOrDefault(emptyList())
             }
             merged = mergeAndDedupe(retryPass, previousQuestionTexts)
@@ -528,6 +794,7 @@ object McqGenerator {
         segments: List<VideoQuestionDetector.QuestionSegment>,
         lang: LanguageDetect.Lang,
         previousQuestionTexts: List<String>,
+        mcqMode: String,
     ): GenerationResult {
         // Concatenate all segments with clear separators. Each
         // segment's label (e.g. "Q.1", "pehla sawaal") is preserved
@@ -544,7 +811,7 @@ object McqGenerator {
 
         val firstPass: List<Cleaned> = chunks.flatMap { chunk ->
             runCatching {
-                extractVideoQuestions(config, chunk, lang, retryNudge = false, exclusionClause = exclusionClause)
+                extractVideoQuestions(config, chunk, lang, retryNudge = false, exclusionClause = exclusionClause, mcqMode = mcqMode)
             }.getOrDefault(emptyList())
         }
         var merged = mergeAndDedupe(firstPass, previousQuestionTexts)
@@ -552,7 +819,7 @@ object McqGenerator {
         if (merged.isEmpty()) {
             val retryPass: List<Cleaned> = chunks.flatMap { chunk ->
                 runCatching {
-                    extractVideoQuestions(config, chunk, lang, retryNudge = true, exclusionClause = exclusionClause)
+                    extractVideoQuestions(config, chunk, lang, retryNudge = true, exclusionClause = exclusionClause, mcqMode = mcqMode)
                 }.getOrDefault(emptyList())
             }
             merged = mergeAndDedupe(retryPass, previousQuestionTexts)
@@ -613,15 +880,21 @@ object McqGenerator {
         lang: LanguageDetect.Lang,
         retryNudge: Boolean,
         exclusionClause: String,
+        mcqMode: String,
     ): List<Cleaned> {
         val nudge = if (retryNudge) {
             "\n\nIMPORTANT: Your previous attempt returned ZERO questions. " +
                 "The segments below DO contain questions the teacher discussed — " +
                 "read carefully and extract every one. Returning [] again is NOT acceptable.\n"
         } else ""
+        val systemPrompt = if (mcqMode == "MATH") {
+            MATH_VIDEO_QUESTIONS_DIRECTIVE
+        } else {
+            THEORY_VIDEO_QUESTIONS_DIRECTIVE
+        }
         val raw = LlmRepository().askStreamingFull(
             config       = config,
-            systemPrompt = VIDEO_QUESTIONS_EXTRACTION_DIRECTIVE,
+            systemPrompt = systemPrompt,
             userPrompt   = buildString {
                 append("OUTPUT LANGUAGE: ").append(lang.directive).append('\n')
                 append(nudge)
@@ -860,6 +1133,7 @@ object McqGenerator {
         lang: LanguageDetect.Lang,
         retryNudge: Boolean,
         exclusionClause: String = "",
+        mcqMode: String,
     ): List<Cleaned> {
         val nudge = if (retryNudge) {
             "\n\nIMPORTANT: Your previous attempt returned ZERO questions. " +
@@ -867,9 +1141,14 @@ object McqGenerator {
                 "GENERATE 10-20 conceptual MCQs based on the facts in the text. " +
                 "Returning [] again is NOT acceptable.\n"
         } else ""
+        val systemPrompt = if (mcqMode == "MATH") {
+            MATH_EXTRACTION_DIRECTIVE
+        } else {
+            THEORY_EXTRACTION_DIRECTIVE
+        }
         val raw = LlmRepository().askStreamingFull(
             config       = config,
-            systemPrompt = EXTRACTION_DIRECTIVE,
+            systemPrompt = systemPrompt,
             userPrompt   = buildString {
                 append("OUTPUT LANGUAGE: ").append(lang.directive).append('\n')
                 append(nudge)

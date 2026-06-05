@@ -99,12 +99,13 @@ class McqHomeViewModel(
      * status updates flow in via [GenerationManager.statusFor]. A
      * second call while one is in flight is a no-op.
      */
-    fun generateQuiz() {
+    fun generateQuiz(mcqMode: String) {
         val app = getApplication<Application>()
         GenerationManager.startMcq(
             application = app,
             documentId = documentId,
             documentTitle = _state.value.title.ifBlank { "MCQ Test" },
+            mcqMode = mcqMode,
         )
     }
 

@@ -545,7 +545,8 @@ class DiscussionViewModel(
             // used — 1:1 with the previous behaviour.
             val multimodalReply: MultimodalAnswer? =
                 if (s.youtubeVideoId != null && pausedAtSec != null &&
-                    LlmProvider.supportsImageContent(cfg.provider, cfg.modelName)) {
+                    LlmProvider.supportsImageContent(cfg.provider, cfg.modelName) &&
+                    !(lastMultimodalPausedAtSec != null && kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0)) {
                     val isSameAsLast = lastMultimodalPausedAtSec != null &&
                         kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0
 
@@ -888,22 +889,25 @@ class DiscussionViewModel(
 
             // Deduplicate and separate to avoid near-duplicate snapshots (minimum 1.0 second gap)
             val distinctPicks = separateTimestamps(timestamps, minGapSec = 1.0)
-            var finalOut = distinctPicks.take(5).toMutableList()
-            while (finalOut.size < 5) {
+            val finalOut = distinctPicks.take(5).toMutableList()
+            var multiplier = 1.0
+            while (finalOut.size < 5 && multiplier < 100.0) {
                 val basePause = pausedAtSec
                 val totalLength = cues.lastOrNull()?.endSec ?: 0.0
-                var multiplier = 1.0
-                val tsRight = (basePause + (multiplier * 2.5)).coerceIn(0.0, totalLength)
-                if (!finalOut.contains(tsRight)) {
+                val spacing = multiplier * 2.5
+                
+                val tsRight = (basePause + spacing).coerceIn(0.0, totalLength)
+                if (finalOut.none { kotlin.math.abs(it - tsRight) < 1.0 }) {
                     finalOut.add(tsRight)
-                } else {
-                    val tsLeft = (basePause - (multiplier * 2.5)).coerceIn(0.0, totalLength)
-                    if (!finalOut.contains(tsLeft)) {
+                }
+                
+                if (finalOut.size < 5) {
+                    val tsLeft = (basePause - spacing).coerceIn(0.0, totalLength)
+                    if (finalOut.none { kotlin.math.abs(it - tsLeft) < 1.0 }) {
                         finalOut.add(tsLeft)
                     }
                 }
                 multiplier += 1.0
-                if (multiplier > 50.0) break
             }
 
             finalOut.sorted()

@@ -47,6 +47,7 @@ class GenerationWorker(
         const val INPUT_TYPE = "type"
         const val INPUT_DOCUMENT_ID = "documentId"
         const val INPUT_DOCUMENT_TITLE = "documentTitle"
+        const val INPUT_MCQ_MODE = "mcqMode"
 
         const val OUTPUT_DOC_TITLE = "docTitle"
         const val OUTPUT_RESULT_ID = "resultId"
@@ -148,6 +149,7 @@ class GenerationWorker(
             ))
         }
 
+        val mcqMode = inputData.getString(INPUT_MCQ_MODE) ?: "THEORY"
         val result = McqGenerator.generate(
             config = cfg,
             documentId = documentId,
@@ -155,6 +157,7 @@ class GenerationWorker(
             transcript = transcript,
             previousQuestionTexts = previousTexts,
             questionSegments = questionSegments,
+            mcqMode = mcqMode,
         ).getOrElse { e ->
             return failure(e.message ?: "MCQ generation fail").also {
                 postFailure(GenerationManager.Type.Mcq, documentId, documentTitle, e.message ?: "MCQ generation fail")

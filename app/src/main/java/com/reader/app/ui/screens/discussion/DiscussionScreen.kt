@@ -328,7 +328,6 @@ fun DiscussionScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
-                    .safeDrawingPadding()
             ) {
                 videoContent(Modifier.fillMaxSize(), true)
             }
@@ -385,7 +384,7 @@ private fun DiscussionInlineLayout(
     onBack: () -> Unit,
     onRequestMicPermission: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
 
         // ---------- Top bar ----------
         Row(
@@ -750,6 +749,8 @@ private fun ChatMessageRow(
         var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
         var textCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
+        val hasMath = msg.text.contains("$") || msg.text.contains("\\(") || msg.text.contains("\\[") || msg.text.contains("\\begin")
+
         if (msg.isStreaming && msg.text.isBlank() && msg.type == DiscussionViewModel.MsgType.Assistant) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(
@@ -763,7 +764,7 @@ private fun ChatMessageRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        } else if (msg.type == DiscussionViewModel.MsgType.Assistant && !msg.isStreaming) {
+        } else if (msg.type == DiscussionViewModel.MsgType.Assistant && !msg.isStreaming && hasMath) {
             val textColorBytes = MaterialTheme.colorScheme.onBackground.toArgb()
             val textColorHex = String.format("#%06X", (0xFFFFFF and textColorBytes))
             

@@ -34,7 +34,7 @@ object LanguageDetect {
     /** Distinct language directives used in prompts. */
     enum class Lang(val directive: String) {
         Hindi("Hindi (Devanagari script — हिंदी)"),
-        Hinglish("Hinglish (Hindi spoken in Roman script — same code-switching ratio as the transcript)"),
+        Hinglish("हिन्दी (Bilingual — Hindi Devanagari script with English technical terms). Do NOT output in Roman script Hinglish"),
         English("English");
     }
 
