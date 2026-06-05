@@ -316,6 +316,18 @@ class DiscussionViewModel(
      */
     fun setVideoCurrentSec(sec: Double) {
         _state.update { it.copy(videoCurrentSec = sec) }
+        // Wipe this cache array immediately once the video timeline changes or playback resumes
+        lastMultimodalPausedAtSec?.let { paused ->
+            if (kotlin.math.abs(sec - paused) > 1.0) {
+                clearMultimodalCache()
+            }
+        }
+    }
+
+    fun clearMultimodalCache() {
+        lastMultimodalPausedAtSec = null
+        lastMultimodalImages = null
+        lastMultimodalTimestamps = null
     }
 
     /**
@@ -543,13 +555,12 @@ class DiscussionViewModel(
             //
             // For text docs the existing buildDiscussion call is
             // used — 1:1 with the previous behaviour.
+            val isSameAsLast = lastMultimodalPausedAtSec != null && pausedAtSec != null &&
+                kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0
+
             val multimodalReply: MultimodalAnswer? =
                 if (s.youtubeVideoId != null && pausedAtSec != null &&
-                    LlmProvider.supportsImageContent(cfg.provider, cfg.modelName) &&
-                    !(lastMultimodalPausedAtSec != null && kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0)) {
-                    val isSameAsLast = lastMultimodalPausedAtSec != null &&
-                        kotlin.math.abs(lastMultimodalPausedAtSec!! - pausedAtSec) < 1.0
-
+                    LlmProvider.supportsImageContent(cfg.provider, cfg.modelName)) {
                     val anchor: Double = pausedAtSec
                     try {
                         val reply = tryMultimodalReply(

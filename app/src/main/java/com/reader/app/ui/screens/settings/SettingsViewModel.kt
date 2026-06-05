@@ -1,5 +1,7 @@
 package com.reader.app.ui.screens.settings
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -16,7 +18,8 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val configRepo: ConfigRepository,
-    private val enrollmentRepo: SpeakerEnrollmentRepository
+    private val enrollmentRepo: SpeakerEnrollmentRepository,
+    private val sharedPrefs: SharedPreferences
 ) : ViewModel() {
 
     data class UiState(
@@ -24,7 +27,8 @@ class SettingsViewModel(
         val originalApiKeys: List<String> = List(10) { "" },
         val keyStatuses: List<ApiKeyStatus> = emptyList(),
         val enrollmentUpdatedAt: Long? = null,
-        val savedMessage: String? = null
+        val savedMessage: String? = null,
+        val videoQuality: String = "Auto"
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -33,7 +37,8 @@ class SettingsViewModel(
     init {
         viewModelScope.launch {
             val keys = configRepo.getKeys()
-            _state.update { it.copy(apiKeys = keys, originalApiKeys = keys) }
+            val quality = sharedPrefs.getString("preferred_quality", "Auto") ?: "Auto"
+            _state.update { it.copy(apiKeys = keys, originalApiKeys = keys, videoQuality = quality) }
             
             enrollmentRepo.get()?.let { e ->
                 _state.update { it.copy(enrollmentUpdatedAt = e.updatedAt) }
@@ -44,6 +49,11 @@ class SettingsViewModel(
                 _state.update { it.copy(keyStatuses = statuses) }
             }
         }
+    }
+
+    fun updateVideoQuality(quality: String) {
+        sharedPrefs.edit().putString("preferred_quality", quality).apply()
+        _state.update { it.copy(videoQuality = quality, savedMessage = "Video streaming quality set to $quality") }
     }
 
     fun updateKey(index: Int, value: String) {
@@ -89,7 +99,9 @@ class SettingsViewModel(
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T =
                 SettingsViewModel(
                     configRepo     = ServiceLocator.configRepository,
-                    enrollmentRepo = ServiceLocator.speakerEnrollmentRepository
+                    enrollmentRepo = ServiceLocator.speakerEnrollmentRepository,
+                    sharedPrefs    = extras[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!
+                        .getSharedPreferences("video_playback_prefs", Context.MODE_PRIVATE)
                 ) as T
         }
     }

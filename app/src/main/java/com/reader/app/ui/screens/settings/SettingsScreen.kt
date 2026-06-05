@@ -29,6 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -179,6 +181,48 @@ fun SettingsScreen(
                             )
                             Spacer(Modifier.width(4.dp))
                             Text("Saved")
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(28.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(28.dp))
+
+                Text(
+                    "VIDEO PLAYBACK QUALITY",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Select your preferred video streaming quality. This value will persist locally and be applied instead of adaptive bandwidth selection.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+
+                var expandedQualityMenu by remember { mutableStateOf(false) }
+                val qualities = listOf("Auto", "240p", "360p", "480p", "720p", "1080p")
+                
+                Box {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { expandedQualityMenu = true }
+                    ) {
+                        Text(state.videoQuality)
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = expandedQualityMenu,
+                        onDismissRequest = { expandedQualityMenu = false }
+                    ) {
+                        qualities.forEach { q ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(q) },
+                                onClick = {
+                                    vm.updateVideoQuality(q)
+                                    expandedQualityMenu = false
+                                }
+                            )
                         }
                     }
                 }

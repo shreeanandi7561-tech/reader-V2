@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -384,11 +387,12 @@ private fun DiscussionInlineLayout(
     onBack: () -> Unit,
     onRequestMicPermission: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(modifier = Modifier.fillMaxSize()) {
 
         // ---------- Top bar ----------
         Row(
             modifier = Modifier
+                .statusBarsPadding()
                 .fillMaxWidth()
                 .height(56.dp)
                 .padding(horizontal = 4.dp),
@@ -397,7 +401,14 @@ private fun DiscussionInlineLayout(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = state.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
 
             IconButton(onClick = {
                 pauseVideoIfNeeded()
@@ -558,7 +569,8 @@ private fun DiscussionInlineLayout(
                 vm.toggleMic()
             },
             onRequestMicPermission = onRequestMicPermission,
-            hasMic       = hasMic
+            hasMic       = hasMic,
+            modifier     = Modifier.navigationBarsPadding()
         )
     }
 }
@@ -573,10 +585,11 @@ private fun Composer(
     micEnabled: Boolean,
     onMic: () -> Unit,
     onRequestMicPermission: () -> Unit,
-    hasMic: Boolean
+    hasMic: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
