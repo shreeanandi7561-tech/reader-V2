@@ -344,14 +344,6 @@ fun DiscussionScreen(
                 onSeekTo         = { ts -> 
                     // Seek video for continuity
                     if (videoHandle.playerView != null) videoHandle.seekTo(ts)
-                    
-                    // Show exact image frame popup as requested by user
-                    scope.launch {
-                        fetchingFrameFor = ts
-                        val frame = vm.captureSingleFrame(ts)
-                        inspectingFrame = frame
-                        fetchingFrameFor = null
-                    }
                 },
                 autoScroll       = autoScroll,
                 hasMic           = hasMic,
@@ -392,7 +384,6 @@ private fun DiscussionInlineLayout(
         // ---------- Top bar ----------
         Row(
             modifier = Modifier
-                .statusBarsPadding()
                 .fillMaxWidth()
                 .height(56.dp)
                 .padding(horizontal = 4.dp),
