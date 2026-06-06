@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -23,12 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+import androidx.compose.foundation.layout.statusBarsPadding
+
 /**
- * Top-bar scaffold WITHOUT status bar padding.
+ * Top-bar scaffold WITH status bar padding.
  *
- * The parent Scaffold (in ReaderNavGraph) already consumes the status bar
- * inset via `innerPadding`. Adding `statusBarsPadding()` here was double-
- * padding the top, pushing the title way down.
+ * This ensures that edge-to-edge layouts (enabled in MainActivity)
+ * correctly position the top bar below the system notch/status bar.
  */
 @Composable
 fun ScreenScaffold(
@@ -39,12 +41,12 @@ fun ScreenScaffold(
     content: @Composable () -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column {
+        Column(modifier = Modifier.statusBarsPadding()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 8.dp),
+                    .heightIn(min = 56.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (onBack != null) {
@@ -55,9 +57,17 @@ fun ScreenScaffold(
                     Spacer(Modifier.width(16.dp))
                 }
                 Spacer(Modifier.width(4.dp))
-                Text(title, style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.weight(1f))
-                if (trailing != null) trailing()
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                if (trailing != null) {
+                    Spacer(Modifier.width(8.dp))
+                    trailing()
+                } else {
+                    Spacer(Modifier.width(16.dp))
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Box(modifier = Modifier.padding(contentPadding)) {

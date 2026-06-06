@@ -267,9 +267,10 @@ fun DiscussionScreen(
         enabled          = state.messages.isNotEmpty()
     )
 
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
     var inspectingFrame by remember { mutableStateOf<com.reader.app.domain.model.ImageData?>(null) }
     var fetchingFrameFor by remember { mutableStateOf<Double?>(null) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     if (inspectingFrame != null || fetchingFrameFor != null) {
         androidx.compose.ui.window.Dialog(onDismissRequest = { 
@@ -344,6 +345,14 @@ fun DiscussionScreen(
                 onSeekTo         = { ts -> 
                     // Seek video for continuity
                     if (videoHandle.playerView != null) videoHandle.seekTo(ts)
+
+                    // Show exact image frame popup as requested by user
+                    scope.launch {
+                        fetchingFrameFor = ts
+                        val frame = vm.captureSingleFrame(ts)
+                        inspectingFrame = frame
+                        fetchingFrameFor = null
+                    }
                 },
                 autoScroll       = autoScroll,
                 hasMic           = hasMic,
@@ -560,8 +569,7 @@ private fun DiscussionInlineLayout(
                 vm.toggleMic()
             },
             onRequestMicPermission = onRequestMicPermission,
-            hasMic       = hasMic,
-            modifier     = Modifier.navigationBarsPadding()
+            hasMic       = hasMic
         )
     }
 }
@@ -620,10 +628,13 @@ private fun Composer(
             onValueChange = onQuery,
             modifier = Modifier
                 .weight(1f)
-                .heightIn(min = 56.dp, max = 160.dp),
+                .heightIn(min = 44.dp, max = 120.dp),
+            textStyle = MaterialTheme.typography.bodyMedium,
+            maxLines = 3,
             placeholder = {
                 Text(
                     if (isCapturing) "Sun raha hoon…" else "Apna doubt likhein ya mic dabaiye…",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             },

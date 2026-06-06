@@ -58,6 +58,7 @@ youtubePlayer = "13.0.0"
 # `getWorkInfosForUniqueWorkFlow`, which the GenerationManager uses
 # to expose progress to the UI.
 work = "2.9.1"
+junit = "4.13.2"
 
 [libraries]
 androidx-core-ktx          = { module = "androidx.core:core-ktx",                       version.ref = "coreKtx" }
@@ -94,6 +95,7 @@ moshi-kotlin               = { module = "com.squareup.moshi:moshi-kotlin",      
 moshi-kotlin-codegen       = { module = "com.squareup.moshi:moshi-kotlin-codegen",      version.ref = "moshi" }
 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+junit                      = { module = "junit:junit",                                   version.ref = "junit" }
 
 [plugins]
 android-application        = { id = "com.android.application",                          version.ref = "agp" }

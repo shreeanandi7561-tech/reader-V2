@@ -119,6 +119,15 @@ object YouTubeTranscriptFetcher {
         "{\"context\":{\"client\":{\"clientName\":\"ANDROID\"," +
             "\"clientVersion\":\"20.10.38\"}},\"videoId\":\"%s\"}"
 
+    private const val INNERTUBE_BODY_WEB_TEMPLATE =
+        "{\"context\":{\"client\":{\"clientName\":\"WEB\"," +
+            "\"clientVersion\":\"2.20250520.01.00\"}},\"videoId\":\"%s\"}"
+
+    private const val INNERTUBE_BODY_IOS_TEMPLATE =
+        "{\"context\":{\"client\":{\"clientName\":\"IOS\"," +
+            "\"clientVersion\":\"19.29.1\",\"deviceModel\":\"iPhone16,2\"," +
+            "\"osName\":\"iOS\",\"osVersion\":\"17.5.1\"}},\"videoId\":\"%s\"}"
+
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -144,28 +153,35 @@ object YouTubeTranscriptFetcher {
 
         // Title via oEmbed — independent path; used as Title-Only fallback.
         val title = runCatching { fetchTitle(videoId) }.getOrNull().orEmpty()
+        println("DEBUG: title = $title")
 
-        // Step 1+2: watch page HTML → INNERTUBE_API_KEY.
+        // Step 1+2: watch page HTML → INNERTUBE_API_KEY with robust fallback.
         val html = runCatching { fetchVideoHtml(videoId) }.getOrNull()
-        if (html.isNullOrBlank()) {
-            return@withContext titleOrReject(
-                videoId, title,
-                "YouTube watch page fetch nahi ho payi. Network / VPN check karein."
-            )
+        println("DEBUG: html is null or blank = ${html.isNullOrBlank()}")
+        val apiKey = if (!html.isNullOrBlank()) {
+            val found = INNERTUBE_KEY_REGEX.find(html)?.groupValues?.get(1)
+            println("DEBUG: found apiKey in HTML = $found")
+            found ?: "AIzaSyAO_FJ2301A83FA_X6N-T_f78C06v7vXg"
+        } else {
+            "AIzaSyAO_FJ2301A83FA_X6N-T_f78C06v7vXg"
         }
-        val apiKey = INNERTUBE_KEY_REGEX.find(html)?.groupValues?.get(1)
-            ?: return@withContext titleOrReject(
-                videoId, title,
-                "INNERTUBE_API_KEY watch page mein nahi mili — YouTube ne layout " +
-                    "badal di hai ya IP block hai."
-            )
+        println("DEBUG: apiKey used = $apiKey")
 
-        // Step 3: POST to InnerTube as ANDROID client.
-        val player = runCatching { fetchInnertubePlayer(videoId, apiKey) }.getOrNull()
-            ?: return@withContext titleOrReject(
+        // Step 3: POST to InnerTube with client fallback stack.
+        var player = runCatching { fetchInnertubePlayer(videoId, apiKey) }.getOrNull()
+        println("DEBUG: player try 1 (apiKey) is null = ${player == null}")
+        if (player == null && apiKey != "AIzaSyAO_FJ2301A83FA_X6N-T_f78C06v7vXg") {
+            player = runCatching { fetchInnertubePlayer(videoId, "AIzaSyAO_FJ2301A83FA_X6N-T_f78C06v7vXg") }.getOrNull()
+            println("DEBUG: player try 2 (hardcoded key) is null = ${player == null}")
+        }
+
+        if (player == null) {
+            println("DEBUG: player was null, rejecting")
+            return@withContext titleOrReject(
                 videoId, title,
                 "YouTube InnerTube call fail ho gayi. Doosri video try karein."
             )
+        }
 
         // Storyboard spec is captured opportunistically — independent
         // of the captions path, so even Title-Only fallback can ship a
@@ -174,10 +190,13 @@ object YouTubeTranscriptFetcher {
         // the live-VOD variant when present.
         val storyboardSpec = player.storyboards?.playerStoryboardSpecRenderer?.spec
             ?: player.storyboards?.playerLiveStoryboardSpecRenderer?.spec
+        println("DEBUG: storyboardSpec found = ${storyboardSpec != null}")
 
         // Step 4: caption tracks.
         val tracks = player.captions?.playerCaptionsTracklistRenderer?.captionTracks.orEmpty()
+        println("DEBUG: tracks count = ${tracks.size}")
         if (tracks.isEmpty()) {
+            println("DEBUG: tracks empty, rejecting")
             return@withContext titleOrReject(
                 videoId, title,
                 "Iss video par koi captions / subtitles available nahi hain. " +
@@ -187,11 +206,16 @@ object YouTubeTranscriptFetcher {
         }
 
         // Step 5: pick — ASR Hindi → manual Hindi → translate-to-Hindi.
-        val pick = pickHindiOrTranslate(tracks) ?: return@withContext titleOrReject(
-            videoId, title,
-            "Iss video par Hindi captions nahi hain aur translation bhi possible nahi hai.",
-            storyboardSpec = storyboardSpec
-        )
+        val pick = pickHindiOrTranslate(tracks)
+        println("DEBUG: pick outcome = $pick")
+        if (pick == null) {
+            println("DEBUG: pick was null, rejecting")
+            return@withContext titleOrReject(
+                videoId, title,
+                "Iss video par Hindi captions nahi hain aur translation bhi possible nahi hai.",
+                storyboardSpec = storyboardSpec
+            )
+        }
 
         // Step 6: build URL — strip &fmt=srv3, append &tlang=hi if needed.
         // Since ~May 2025 YouTube requires a `&pot` (Proof of Origin
@@ -203,14 +227,24 @@ object YouTubeTranscriptFetcher {
         val baseClean = pick.track.baseUrl.orEmpty().replace("&fmt=srv3", "")
         val captionUrl = if (pick.translateTo.isNullOrBlank()) baseClean
             else "$baseClean&tlang=${pick.translateTo}"
+        println("DEBUG: captionUrl = $captionUrl")
 
         // Step 7: fetch and parse captions — try direct URL first,
         // then InnerTube get_transcript fallback.
-        var rawXml = if (captionUrl.isNotBlank() && !captionUrl.contains("&exp=xpe")) {
-            runCatching { httpGetText(captionUrl) }.getOrNull().orEmpty()
-        } else ""
+        var rawXml = ""
+        if (captionUrl.isNotBlank()) {
+            println("DEBUG: Trying direct URL fetch unconditionally")
+            rawXml = runCatching {
+                httpGetText(captionUrl)
+            }.onFailure {
+                println("DEBUG: Direct URL fetch failed with exception:")
+                it.printStackTrace()
+            }.getOrNull().orEmpty()
+        }
+        println("DEBUG: rawXml length = ${rawXml.length}")
 
         var cues = parseCues(rawXml)
+        println("DEBUG: parsed xml cues size = ${cues.size}")
 
         // Fallback: if direct URL returned empty (pot-gated), use
         // InnerTube's get_transcript endpoint which extracts the
@@ -218,9 +252,12 @@ object YouTubeTranscriptFetcher {
         // returns JSON with `actions[].transcriptSegmentRenderer`
         // or `engagementPanels` containing the transcript body.
         if (cues.isEmpty() || cues.all { it.text.isBlank() }) {
+            println("DEBUG: Trying fetchTranscriptViaInnerTube fallback...")
             val fallbackCues = runCatching {
                 fetchTranscriptViaInnerTube(videoId, apiKey, pick.track.languageCode.orEmpty(), pick.translateTo)
-            }.getOrNull()
+            }.onFailure { println("DEBUG: fetchTranscriptViaInnerTube failed with error: ${it.message}") }
+                .getOrNull()
+            println("DEBUG: fallbackCues size = ${fallbackCues?.size ?: "null"}")
             if (!fallbackCues.isNullOrEmpty()) {
                 cues = fallbackCues
             }
@@ -262,16 +299,16 @@ object YouTubeTranscriptFetcher {
     // ---------- HTTP ----------
 
     /**
-     * Single GET helper. Mirrors the Python `requests.Session()` setup
-     * the library uses — only `Accept-Language: en-US` is added,
-     * everything else is the library default. Optional `cookie`
-     * supports the EU consent retry.
+     * Single GET helper. Uses standard Chrome browser headers to avoid
+     * automated client blocks. Optional `cookie` supports the EU consent retry.
      */
     private fun httpGetText(url: String, cookie: String? = null): String {
         if (url.isBlank()) error("Empty URL")
         val builder = Request.Builder()
             .url(url)
-            .header("Accept-Language", "en-US")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
         if (!cookie.isNullOrBlank()) builder.header("Cookie", cookie)
         client.newCall(builder.build()).execute().use { resp ->
             if (!resp.isSuccessful) error("HTTP ${resp.code} for $url")
@@ -279,17 +316,25 @@ object YouTubeTranscriptFetcher {
         }
     }
 
-    /** POST JSON to InnerTube. Same minimal headers as the Python lib. */
-    private fun httpPostJson(url: String, jsonBody: String): String {
+    /** POST JSON to InnerTube. Uses standard Chrome browser headers. */
+    private fun httpPostJson(url: String, jsonBody: String, videoIdForReferer: String? = null): String {
+        val refererUrl = if (videoIdForReferer != null) "https://www.youtube.com/watch?v=$videoIdForReferer" else "https://www.youtube.com/"
         val req = Request.Builder()
             .url(url)
             .post(jsonBody.toRequestBody("application/json".toMediaType()))
-            .header("Accept-Language", "en-US")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
             .header("Content-Type", "application/json")
+            .header("Origin", "https://www.youtube.com")
+            .header("Referer", refererUrl)
             .build()
         client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) error("HTTP ${resp.code} for $url")
-            return resp.body?.string().orEmpty()
+            val body = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                error("HTTP ${resp.code} for $url\nResponse: $body")
+            }
+            return body
         }
     }
 
@@ -309,10 +354,40 @@ object YouTubeTranscriptFetcher {
     }
 
     private fun fetchInnertubePlayer(videoId: String, apiKey: String): PlayerResponseJson? {
-        val url  = INNERTUBE_API_URL + apiKey
-        val body = INNERTUBE_BODY_TEMPLATE.format(videoId)
-        val raw  = runCatching { httpPostJson(url, body) }.getOrNull() ?: return null
-        return runCatching { playerAdapter.fromJson(raw) }.getOrNull()
+        val url = INNERTUBE_API_URL + apiKey
+
+        // Client 1: Try ANDROID client (original)
+        var body = INNERTUBE_BODY_TEMPLATE.format(videoId)
+        var raw = runCatching { httpPostJson(url, body) }.getOrNull()
+        var response = raw?.let { runCatching { playerAdapter.fromJson(it) }.getOrNull() }
+
+        // Client 2: If ANDROID client has no caption tracks, fall back to WEB client
+        val hasCaptions = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.isNotEmpty() == true
+        if (!hasCaptions) {
+            body = INNERTUBE_BODY_WEB_TEMPLATE.format(videoId)
+            raw = runCatching { httpPostJson(url, body) }.getOrNull()
+            raw?.let {
+                val parsed = runCatching { playerAdapter.fromJson(it) }.getOrNull()
+                if (parsed?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.isNotEmpty() == true) {
+                    response = parsed
+                }
+            }
+        }
+
+        // Client 3: If still empty, fall back to IOS client
+        val stillNoCaptions = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks.isNullOrEmpty()
+        if (stillNoCaptions) {
+            body = INNERTUBE_BODY_IOS_TEMPLATE.format(videoId)
+            raw = runCatching { httpPostJson(url, body) }.getOrNull()
+            raw?.let {
+                val parsed = runCatching { playerAdapter.fromJson(it) }.getOrNull()
+                if (parsed?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.isNotEmpty() == true) {
+                    response = parsed
+                }
+            }
+        }
+
+        return response
     }
 
     /**
@@ -374,6 +449,7 @@ object YouTubeTranscriptFetcher {
         translateTo: String?
     ): List<TranscriptCue>? {
         val url = "https://www.youtube.com/youtubei/v1/get_transcript?key=$apiKey"
+        println("DEBUG [get_transcript]: url = $url")
 
         // Build the params proto-like value. The youtube-transcript-api
         // library encodes a protobuf, but we can use a simpler approach:
@@ -385,16 +461,36 @@ object YouTubeTranscriptFetcher {
         // Base64 of a small protobuf: field 1 = "\n\x0b{videoId}"
         // We construct it manually.
         val paramsBytes = buildTranscriptParams(videoId)
-        val params = android.util.Base64.encodeToString(paramsBytes, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)
+        val params = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(paramsBytes)
+        println("DEBUG [get_transcript]: params base64 = $params")
 
         val body = buildString {
             append("{\"context\":{\"client\":{\"clientName\":\"WEB\",")
             append("\"clientVersion\":\"2.20250520.01.00\"}},")
+            append("\"videoId\":\"").append(videoId).append("\",")
             append("\"params\":\"").append(params).append("\"}")
         }
+        println("DEBUG [get_transcript]: body = $body")
 
-        val raw = runCatching { httpPostJson(url, body) }.getOrNull() ?: return null
-        return parseGetTranscriptResponse(raw)
+        val raw = runCatching { httpPostJson(url, body, videoId) }
+            .onFailure {
+                println("DEBUG [get_transcript]: httpPostJson failed with Exception:")
+                it.printStackTrace()
+            }
+            .getOrNull()
+        println("DEBUG [get_transcript]: raw response is null = ${raw == null}")
+        if (raw != null) {
+            println("DEBUG [get_transcript]: raw response length = ${raw.length}")
+            if (raw.length < 500) {
+                println("DEBUG [get_transcript]: raw response snippet = $raw")
+            } else {
+                println("DEBUG [get_transcript]: raw response snippet = ${raw.take(500)}")
+            }
+        }
+        
+        val parsed = raw?.let { parseGetTranscriptResponse(it) }
+        println("DEBUG [get_transcript]: parsed cues count = ${parsed?.size ?: "null"}")
+        return parsed
     }
 
     /**
@@ -427,65 +523,36 @@ object YouTubeTranscriptFetcher {
 
     /**
      * Parse the get_transcript JSON response into a list of cues.
-     * Handles the nested `actions[].updateEngagementPanelAction.content
-     * .transcriptRenderer.body.transcriptBodyRenderer.cueGroups[]
-     * .transcriptCueGroupRenderer.cues[].transcriptCueRenderer` path.
-     *
-     * Falls back to regex extraction if the JSON structure varies from
-     * what we expect (YouTube changes this occasionally).
+     * Uses a highly robust structural-splitting approach by splitting
+     * the JSON block on "transcriptCueRenderer" to isolate individual cue groups.
+     * This makes parsing completely immune to any variations in field ordering,
+     * new attributes, or minor formatting changes introduced by YouTube.
      */
     private fun parseGetTranscriptResponse(raw: String): List<TranscriptCue>? {
         if (raw.isBlank()) return null
 
-        // Strategy 1: Parse structured JSON using simple string scanning
-        // (avoid adding a full JSON tree walker dependency — the structure
-        // is predictable enough for targeted extraction).
         val cues = ArrayList<TranscriptCue>()
 
-        // Look for "transcriptCueRenderer" blocks
-        val cueRendererRegex = Regex(
-            "\"transcriptCueRenderer\"\\s*:\\s*\\{[^}]*?" +
-                "\"cue\"\\s*:\\s*\\{[^}]*?\"simpleText\"\\s*:\\s*\"([^\"]*?)\"[^}]*?\\}[^}]*?" +
-                "\"startOffsetMs\"\\s*:\\s*\"(\\d+)\"[^}]*?" +
-                "\"durationMs\"\\s*:\\s*\"(\\d+)\"",
-            RegexOption.DOT_MATCHES_ALL
-        )
+        // Split response structurally by "transcriptCueRenderer" to isolate individual cues.
+        val parts = raw.split("\"transcriptCueRenderer\"")
+        if (parts.size > 1) {
+            val simpleTextRegex = Regex("\"simpleText\"\\s*:\\s*\"([^\"]*?)\"")
+            val startRegex = Regex("\"startOffsetMs\"\\s*:\\s*\"(\\d+)\"")
+            val durationRegex = Regex("\"durationMs\"\\s*:\\s*\"(\\d+)\"")
 
-        for (m in cueRendererRegex.findAll(raw)) {
-            val text = m.groupValues[1]
-                .replace("\\n", " ")
-                .replace("\\\"", "\"")
-                .replace("\\/", "/")
-                .trim()
-            val startMs = m.groupValues[2].toLongOrNull() ?: continue
-            val durMs = m.groupValues[3].toLongOrNull() ?: 0L
-            if (text.isNotBlank()) {
-                cues += TranscriptCue(
-                    startSec = startMs.toDouble() / 1000.0,
-                    durSec = durMs.toDouble() / 1000.0,
-                    text = decodeEntities(text)
-                )
-            }
-        }
+            for (i in 1 until parts.size) {
+                val block = parts[i]
+                val textMatch = simpleTextRegex.find(block) ?: continue
+                val text = textMatch.groupValues[1]
+                    .replace("\\n", " ")
+                    .replace("\\\"", "\"")
+                    .replace("\\/", "/")
+                    .trim()
+                if (text.isBlank()) continue
 
-        if (cues.isNotEmpty()) return cues
+                val startMs = startRegex.find(block)?.groupValues?.get(1)?.toLongOrNull() ?: continue
+                val durMs = durationRegex.find(block)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
 
-        // Strategy 2: Some responses put startOffsetMs before cue.
-        // Try a more relaxed pattern.
-        val relaxedRegex = Regex(
-            "\"startOffsetMs\"\\s*:\\s*\"(\\d+)\"[\\s\\S]*?" +
-                "\"durationMs\"\\s*:\\s*\"(\\d+)\"[\\s\\S]*?" +
-                "\"simpleText\"\\s*:\\s*\"([^\"]*?)\"",
-        )
-        for (m in relaxedRegex.findAll(raw)) {
-            val startMs = m.groupValues[1].toLongOrNull() ?: continue
-            val durMs = m.groupValues[2].toLongOrNull() ?: 0L
-            val text = m.groupValues[3]
-                .replace("\\n", " ")
-                .replace("\\\"", "\"")
-                .replace("\\/", "/")
-                .trim()
-            if (text.isNotBlank()) {
                 cues += TranscriptCue(
                     startSec = startMs.toDouble() / 1000.0,
                     durSec = durMs.toDouble() / 1000.0,

@@ -136,4 +136,6 @@ dependencies {
     // successful work item would re-bill the BYOK LLM and re-running
     // a failed one would re-bill on whatever caused the failure.
     implementation(libs.androidx.work.runtime)
+
+    testImplementation(libs.junit)
 }
